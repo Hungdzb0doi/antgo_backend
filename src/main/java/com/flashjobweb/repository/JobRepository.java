@@ -14,6 +14,7 @@ public interface JobRepository extends JpaRepository<JobEntity, UUID> {
 
     List<JobEntity> findByEmployerUserId(UUID employerId);
     List<JobEntity> findByStatus(String status);
+    long countByStatus(String status);
     List<JobEntity> findByemployer_userIdAndStatus(UUID employerId, String status);
 
     @Query("SELECT j FROM JobEntity j LEFT JOIN j.category c WHERE j.employer.userId = :employerId " +

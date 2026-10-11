@@ -64,6 +64,10 @@ public class ReportServiceImpl implements ReportService {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
+        if (reportRepository.existsByApplicationIdAndReporterId(application.getId(), reporter.getId())) {
+            throw new AppException(ErrorCode.REPORT_ALREADY_EXISTS);
+        }
+
         ReportEntity report = new ReportEntity();
         report.setReporter(reporter);
         report.setReported(reported);

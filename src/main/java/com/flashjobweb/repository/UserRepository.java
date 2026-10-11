@@ -10,4 +10,8 @@ public interface UserRepository extends JpaRepository<UserEntity, UUID> {
     Optional<UserEntity> findByEmail(String email);
     boolean existsByPhone(String phone);
     boolean existsByEmail(String email);
+    long countByCurrentMode(String currentMode);
+    long countByIdentityVerified(Boolean identityVerified);
+    java.util.List<UserEntity> findByFullNameContainingIgnoreCaseOrPhoneContaining(String name, String phone);
+    java.util.List<UserEntity> findAllByOrderByCreatedAtDesc();
 }

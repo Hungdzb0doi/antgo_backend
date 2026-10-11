@@ -47,7 +47,7 @@ public interface ApplicationRepository extends JpaRepository<ApplicationEntity, 
         return findApplicationsForWorker(workerId, status, type, null);
     }
 
-    @Query("SELECT a FROM ApplicationEntity a WHERE a.job.id = :jobId AND a.type = 'APPLICATION' ORDER BY a.createdAt DESC")
+    @Query("SELECT a FROM ApplicationEntity a WHERE a.job.id = :jobId ORDER BY a.createdAt DESC NULLS LAST")
     List<ApplicationEntity> findApplicationsByJobId(@Param("jobId") UUID jobId);
     boolean existsByworker_userIdAndJob_id(UUID workerId, UUID jobId);
 

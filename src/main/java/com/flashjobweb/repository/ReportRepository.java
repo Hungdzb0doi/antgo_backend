@@ -7,6 +7,10 @@ import java.util.UUID;
 
 public interface ReportRepository extends JpaRepository<ReportEntity, UUID> {
     List<ReportEntity> findByStatus(String status);
+    List<ReportEntity> findByStatusOrderByCreatedAtDesc(String status);
+    List<ReportEntity> findByStatusInOrderByCreatedAtDesc(List<String> statuses);
+    List<ReportEntity> findAllByOrderByCreatedAtDesc();
+    long countByStatus(String status);
     List<ReportEntity> findByReportedId(UUID reportedId);
     boolean existsByApplicationId(UUID applicationId);
     boolean existsByApplicationIdAndReporterId(UUID applicationId, UUID reporterId);

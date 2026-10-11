@@ -34,11 +34,14 @@ public enum ErrorCode {
     INVALID_OTP(2010, "Mã OTP không hợp lệ", HttpStatus.BAD_REQUEST),
     NOT_SUBMIT_EKYC(2011, "Không gửi được căn cước ", HttpStatus.BAD_REQUEST),
     REPUTATION_SCORE_TOO_LOW(2012, "Điểm uy tín của bạn quá thấp (dưới 50 điểm), tạm thời bị hạn chế thực hiện chức năng này", HttpStatus.FORBIDDEN),
+    EKYC_NOT_FOUND(2013, "Không tìm thấy hồ sơ eKYC", HttpStatus.NOT_FOUND),
+    CANNOT_BAN_ADMIN(2014, "Không thể thao tác khóa tài khoản Quản trị viên", HttpStatus.BAD_REQUEST),
 
     // ===== JOB =====
     JOB_NOT_FOUND(3000, "Không tìm thấy công việc", HttpStatus.NOT_FOUND),
     JOB_CATEGORY_NOT_FOUND(3001, "Không tìm thấy danh mục công việc", HttpStatus.NOT_FOUND),
     JOB_CATEGORY_ALREADY_EXISTS(3002, "Danh mục công việc đã tồn tại", HttpStatus.CONFLICT),
+    CATEGORY_HAS_JOBS(3009, "Không thể xóa danh mục đang có công việc liên kết", HttpStatus.BAD_REQUEST),
     JOB_NOT_OPEN(3003, "Công việc không còn mở để ứng tuyển", HttpStatus.BAD_REQUEST),
     JOB_ALREADY_CANCELLED(3004, "Công việc đã bị hủy", HttpStatus.BAD_REQUEST),
     JOB_ALREADY_COMPLETED(3005, "Công việc đã hoàn thành", HttpStatus.BAD_REQUEST),

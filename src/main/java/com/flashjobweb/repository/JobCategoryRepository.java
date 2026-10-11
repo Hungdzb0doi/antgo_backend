@@ -7,4 +7,6 @@ import java.util.UUID;
 
 public interface JobCategoryRepository extends JpaRepository<JobCategoryEntity, UUID> {
     Optional<JobCategoryEntity> findByName(String name);
+    boolean existsByNameIgnoreCase(String name);
+    boolean existsByNameIgnoreCaseAndIdNot(String name, UUID id);
 }

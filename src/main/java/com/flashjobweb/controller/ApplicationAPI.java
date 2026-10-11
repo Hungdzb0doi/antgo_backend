@@ -44,8 +44,10 @@ public class ApplicationAPI {
 
     @GetMapping("/job")
     @PreAuthorize("hasRole('EMPLOYER')")
-    public ResponseEntity<ApiResponse<Object>> getApplicationForJob(@RequestParam UUID jobId){
-        return ResponseEntity.ok(ApiResponse.success(applicationService.getApplicationsForJob(jobId)));
+    public ResponseEntity<ApiResponse<Object>> getApplicationForJob(
+            @RequestParam UUID jobId,
+            @RequestParam(required = false) ApplicationType type){
+        return ResponseEntity.ok(ApiResponse.success(applicationService.getApplicationsForJob(jobId, type)));
     }
 
     @PutMapping("/isacceptapplication")

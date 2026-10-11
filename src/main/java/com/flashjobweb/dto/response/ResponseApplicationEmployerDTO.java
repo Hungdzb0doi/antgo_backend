@@ -23,6 +23,7 @@ public class ResponseApplicationEmployerDTO {
         private Integer reviewRating;
         private String reviewComment;
         private Boolean isDisputed;
+        private Boolean hasReported;
         private Boolean employerConfirmed;
         private Boolean workerConfirmed;
         private java.math.BigDecimal earnedAmount;

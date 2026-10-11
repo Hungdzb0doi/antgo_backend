@@ -98,7 +98,7 @@ public class ReviewServiceImpl implements ReviewService {
         log.info("Người dùng {} đã đánh giá {} sao cho {} trong đơn {}", reviewer.getId(), rating, reviewee.getId(), application.getId());
 
         // Gửi thông báo đến người được đánh giá
-        String roleTitle = isWorker ? "Thợ làm việc" : "Nhà tuyển dụng";
+        String roleTitle = isWorker ? "Ứng viên" : "Nhà tuyển dụng";
         String commentSummary = (comment != null && !comment.isEmpty()) ? ": \"" + comment + "\"" : "";
         notificationService.sendNotification(
                 reviewee,

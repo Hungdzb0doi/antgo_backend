@@ -23,4 +23,5 @@ public class ResponseScanQrDTO {
     private BigDecimal totalEarned;
     private Boolean workerConfirmed;
     private Boolean employerConfirmed;
+    private String workerAvatar;
 }

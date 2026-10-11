@@ -179,7 +179,7 @@ public class JobServiceImpl implements JobService {
                     dto.setDistance(result.getDistance().getValue());
 
                     workerProfileRepository.findById(UUID.fromString(workerIdStr)).ifPresent(worker -> {
-                        // Chỉ hiển thị thợ có điểm uy tín >= 50 và đang bật trạng thái sẵn sàng
+                        // Chỉ hiển thị ứng viên có điểm uy tín >= 50 và đang bật trạng thái sẵn sàng
                         if (worker.getWorkerScore() != null && worker.getWorkerScore() < 50) {
                             return;
                         }
@@ -396,7 +396,7 @@ public class JobServiceImpl implements JobService {
             log.info("Đã HỦY Job {}: Không có người ứng tuyển", jobId);
 
             notificationService.sendNotification(job.getEmployer().getUserEntity(), "Công việc bị hủy tự động",
-                    "Rất tiếc, công việc '" + job.getTitle() + "' đã bị hủy vì đến giờ nhưng chưa tìm được thợ.", "SYSTEM", job.getId());
+                    "Rất tiếc, công việc '" + job.getTitle() + "' đã bị hủy vì đến giờ nhưng chưa tìm được ứng viên.", "SYSTEM", job.getId());
 
             List<ApplicationEntity> pendingApps = applicationRepository.findByJob_IdAndStatus(job.getId(), ApplicationStatus.PENDING);
             for (ApplicationEntity app : pendingApps) {
@@ -410,7 +410,7 @@ public class JobServiceImpl implements JobService {
             log.info("Job {} ĐANG THỰC HIỆN với {} ứng viên", jobId, bookedCount);
 
             notificationService.sendNotification(job.getEmployer().getUserEntity(), "Công việc bắt đầu",
-                    "Đã đến giờ! Công việc '" + job.getTitle() + "' đang bắt đầu với " + bookedCount + " thợ.", "SYSTEM", job.getId());
+                    "Đã đến giờ! Công việc '" + job.getTitle() + "' đang bắt đầu với " + bookedCount + " ứng viên.", "SYSTEM", job.getId());
 
             List<ApplicationEntity> bookedApps = applicationRepository.findByJob_IdAndStatus(job.getId(), ApplicationStatus.BOOKED);
             for (ApplicationEntity app : bookedApps) {
@@ -426,7 +426,7 @@ public class JobServiceImpl implements JobService {
                 String notifTitle = (app.getType() == ApplicationType.INVITATION) ? "Lời mời làm việc hết hạn" : "Đơn ứng tuyển hết hạn";
                 String notifContent = (app.getType() == ApplicationType.INVITATION)
                         ? "Lời mời cho công việc '" + job.getTitle() + "' đã hết hạn do công việc đã chính thức bắt đầu."
-                        : "Rất tiếc, công việc '" + job.getTitle() + "' đã bắt đầu và đã chốt danh sách thợ. Đơn ứng tuyển của bạn đã hết hạn.";
+                        : "Rất tiếc, công việc '" + job.getTitle() + "' đã bắt đầu và đã chốt danh sách ứng viên. Đơn ứng tuyển của bạn đã hết hạn.";
                 notificationService.sendNotification(app.getWorker().getUserEntity(), notifTitle, notifContent, "SYSTEM", job.getId());
             }
         }
@@ -446,12 +446,12 @@ public class JobServiceImpl implements JobService {
             return;
         }
 
-        // Nếu có thợ đang làm dở -> KHÔNG tự ý đóng Job, gửi nhắc nhở cho cả 2 bên
+        // Nếu có ứng viên đang làm dở -> KHÔNG tự ý đóng Job, gửi nhắc nhở cho cả 2 bên
         if (activeWorkers > 0) {
-            log.info("Job {} đến giờ kết thúc dự kiến nhưng vẫn có {} thợ đang làm -> Gửi nhắc nhở", jobId, activeWorkers);
+            log.info("Job {} đến giờ kết thúc dự kiến nhưng vẫn có {} ứng viên đang làm -> Gửi nhắc nhở", jobId, activeWorkers);
 
             notificationService.sendNotification(job.getEmployer().getUserEntity(), "Ca làm việc đến giờ kết thúc",
-                    "Công việc '" + job.getTitle() + "' đã đến giờ kết thúc dự kiến. Vui lòng chuẩn bị mã QR Check-out và thanh toán tiền công cho thợ.", "SYSTEM", job.getId());
+                    "Công việc '" + job.getTitle() + "' đã đến giờ kết thúc dự kiến. Vui lòng chuẩn bị mã QR Check-out và thanh toán tiền công cho ứng viên.", "SYSTEM", job.getId());
 
             List<ApplicationEntity> inProgressApps = applicationRepository.findByJob_IdAndStatus(job.getId(), ApplicationStatus.IN_PROGRESS);
             for (ApplicationEntity app : inProgressApps) {
@@ -460,9 +460,9 @@ public class JobServiceImpl implements JobService {
             }
         }
 
-        // Nếu có thợ được duyệt nhưng cả ca không đến Check-in -> Đánh dấu NO_SHOW
+        // Nếu có ứng viên được duyệt nhưng cả ca không đến Check-in -> Đánh dấu NO_SHOW
         if (bookedWorkers > 0) {
-            log.warn("Job {} có {} thợ nhận việc nhưng không đến Check-in -> Đánh dấu NO_SHOW", jobId, bookedWorkers);
+            log.warn("Job {} có {} ứng viên nhận việc nhưng không đến Check-in -> Đánh dấu NO_SHOW", jobId, bookedWorkers);
             List<ApplicationEntity> bookedApps = applicationRepository.findByJob_IdAndStatus(job.getId(), ApplicationStatus.BOOKED);
             for (ApplicationEntity app : bookedApps) {
                 app.setStatus(ApplicationStatus.NO_SHOW);
@@ -477,7 +477,7 @@ public class JobServiceImpl implements JobService {
 
                 notificationService.sendNotification(app.getWorker().getUserEntity(), "Đơn bị đánh dấu Bỏ ca",
                         "Bạn đã không có mặt Check-in công việc '" + job.getTitle() + "'. Đơn đã bị ghi nhận Bỏ ca (NO_SHOW) và bạn bị trừ 10 điểm uy tín.", "SYSTEM", job.getId());
-                notificationService.sendNotification(job.getEmployer().getUserEntity(), "Thợ không đến nhận việc",
+                notificationService.sendNotification(job.getEmployer().getUserEntity(), "Ứng viên không đến nhận việc",
                         "Ứng viên " + app.getWorker().getUserEntity().getFullName() + " đã không đến Check-in công việc '" + job.getTitle() + "'.", "SYSTEM", job.getId());
             }
 
@@ -555,7 +555,7 @@ public class JobServiceImpl implements JobService {
                         app.setStatus(ApplicationStatus.NO_SHOW);
                         applicationRepository.save(app);
 
-                        // Trừ uy tín thợ
+                        // Trừ uy tín ứng viên
                         WorkerProfileEntity worker = app.getWorker();
                         if (worker.getWorkerScore() != null) {
                             worker.setWorkerScore(Math.max(0, worker.getWorkerScore() - 10));
@@ -616,7 +616,7 @@ public class JobServiceImpl implements JobService {
                             notificationService.sendNotification(
                                     app.getWorker().getUserEntity(),
                                     "Công việc đã bị hủy",
-                                    "Chủ nhà đã hủy công việc \"" + job.getTitle() + "\".",
+                                    "Nhà tuyển dụng đã hủy công việc \"" + job.getTitle() + "\".",
                                     "JOB_CANCELLED"
                             );
                         }

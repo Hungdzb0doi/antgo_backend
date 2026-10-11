@@ -5,6 +5,16 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 @Controller
 public class WebController {
+    @GetMapping({"/", "/index", "/interface/landing"})
+    public String getLandingPage() {
+        return "forward:/index.html";
+    }
+
+    @GetMapping({"/interface/unauthorized", "/interface/401"})
+    public String getUnauthorizedPage() {
+        return "forward:/unauthorized.html";
+    }
+
     @GetMapping("/interface/authentication")
     public String getAuthenticationPage() {
         return "forward:/authentication.html";
@@ -56,5 +66,9 @@ public class WebController {
     @GetMapping("/interface/detailnotification")
     public String getDetailNotification() {
         return "forward:/detailnotification.html";
+    }
+    @GetMapping("/interface/admin")
+    public String getAdminPage() {
+        return "forward:/admin.html";
     }
 }

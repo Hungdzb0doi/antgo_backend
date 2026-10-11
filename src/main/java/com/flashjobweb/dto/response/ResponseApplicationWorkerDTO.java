@@ -26,7 +26,9 @@ public class ResponseApplicationWorkerDTO {
     private Integer reviewRating;
     private String reviewComment;
     private Boolean isDisputed;
+    private Boolean hasReported;
     private Double latitude;
     private Double longitude;
     private String employerPhone;
+    private String employerAvatar;
 }

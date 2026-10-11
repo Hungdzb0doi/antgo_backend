@@ -23,7 +23,10 @@ public interface ApplicationService {
             ApplicationType type,
             String keyword);
     void respondToInvitation(RequestInvitationDTO request);
-    List<ResponseApplicationEmployerDTO> getApplicationsForJob(UUID jobId);
+    default List<ResponseApplicationEmployerDTO> getApplicationsForJob(UUID jobId) {
+        return getApplicationsForJob(jobId, null);
+    }
+    List<ResponseApplicationEmployerDTO> getApplicationsForJob(UUID jobId, ApplicationType type);
     void respondToApplication(RequestApplicationDTO request);
     ResponseScanQrDTO scanQr(RequestScanQrDTO request);
     String generateQrData(UUID jobId, String action);

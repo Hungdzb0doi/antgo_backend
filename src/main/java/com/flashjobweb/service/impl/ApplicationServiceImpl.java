@@ -79,8 +79,9 @@ public class ApplicationServiceImpl implements ApplicationService {
             Optional<ReviewEntity> myReview = reviewRepository.findByApplicationIdAndReviewerId(app.getId(), user.getId());
             dto.setIsReviewed(myReview.isPresent());
             dto.setReviewRating(myReview.map(ReviewEntity::getRating).orElse(null));
-            dto.setReviewComment(myReview.map(ReviewEntity::getComment).orElse(null));
-            dto.setIsDisputed(Boolean.TRUE.equals(app.getIsDisputed()) || reportRepository.existsByApplicationId(app.getId()));
+            boolean hasWorkerReported = reportRepository.existsByApplicationIdAndReporterId(app.getId(), user.getId());
+            dto.setHasReported(hasWorkerReported);
+            dto.setIsDisputed(Boolean.TRUE.equals(app.getIsDisputed()));
 
             if (app.getJob() != null && app.getJob().getLocation() != null) {
                 dto.setLatitude(app.getJob().getLocation().getY());
@@ -89,6 +90,7 @@ public class ApplicationServiceImpl implements ApplicationService {
 
             if (app.getJob() != null && app.getJob().getEmployer() != null && app.getJob().getEmployer().getUserEntity() != null) {
                 dto.setEmployerPhone(app.getJob().getEmployer().getUserEntity().getPhone());
+                dto.setEmployerAvatar(app.getJob().getEmployer().getUserEntity().getAvatarUrl());
             }
 
             return dto;
@@ -184,6 +186,11 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final JobRepository jobRepository;
     @Override
     public List<ResponseApplicationEmployerDTO> getApplicationsForJob(UUID jobId) {
+        return getApplicationsForJob(jobId, null);
+    }
+
+    @Override
+    public List<ResponseApplicationEmployerDTO> getApplicationsForJob(UUID jobId, ApplicationType type) {
 
         String currentPhone = SecurityContextHolder.getContext().getAuthentication().getName();
         UserEntity currentUser = userRepository.findByPhone(currentPhone)
@@ -198,6 +205,50 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         List<ApplicationEntity> applications = applicationRepository.findApplicationsByJobId(jobId);
 
+        String jobStatus = job.getStatus() != null ? job.getStatus().toUpperCase() : "OPEN";
+
+        if (type != null) {
+            applications = applications.stream()
+                    .filter(app -> app.getType() == type)
+                    .toList();
+        } else {
+            if ("OPEN".equals(jobStatus)) {
+                // "cái xem ứng tuyển này chỉ đưa ứng viên đã ứng tuyển thôi còn lời mời thì do ứng viên quyết"
+                // Giai đoạn tuyển dụng (OPEN): Chỉ lấy các đơn do ứng viên tự nộp (APPLICATION)
+                applications = applications.stream()
+                        .filter(app -> app.getType() == ApplicationType.APPLICATION)
+                        .toList();
+            } else if ("COMPLETED".equals(jobStatus)) {
+                // "còn đánh giá sau khi xong công việc hoặc xem danh sách ứng viên xong công việc thì mới đưa toàn bộ"
+                // Giai đoạn hoàn thành (COMPLETED): Đưa toàn bộ các ứng viên đã tham gia/hoàn thành công việc từ cả 2 nguồn (APPLICATION & INVITATION đã đồng ý)
+                applications = applications.stream()
+                        .filter(app -> {
+                            if (app.getType() == ApplicationType.INVITATION) {
+                                return app.getStatus() != ApplicationStatus.PENDING && app.getStatus() != ApplicationStatus.CANCELLED;
+                            }
+                            return true;
+                        })
+                        .sorted((a, b) -> {
+                            boolean aCompleted = a.getStatus() == ApplicationStatus.COMPLETED;
+                            boolean bCompleted = b.getStatus() == ApplicationStatus.COMPLETED;
+                            if (aCompleted && !bCompleted) return -1;
+                            if (!aCompleted && bCompleted) return 1;
+                            return 0;
+                        })
+                        .toList();
+            } else if ("IN_PROGRESS".equals(jobStatus)) {
+                // Giai đoạn ca làm đang diễn ra: Đưa toàn bộ ứng viên đã được chốt từ cả 2 nguồn
+                applications = applications.stream()
+                        .filter(app -> {
+                            if (app.getType() == ApplicationType.INVITATION) {
+                                return app.getStatus() != ApplicationStatus.PENDING && app.getStatus() != ApplicationStatus.CANCELLED;
+                            }
+                            return true;
+                        })
+                        .toList();
+            }
+        }
+
         return applications.stream().map(app -> {
             ResponseApplicationEmployerDTO dto = new ResponseApplicationEmployerDTO();
             dto.setApplicationId(app.getId());
@@ -207,7 +258,7 @@ public class ApplicationServiceImpl implements ApplicationService {
             dto.setWorkerScore(app.getWorker().getWorkerScore());
             dto.setPhone(app.getWorker().getUserEntity().getPhone());
             dto.setStatus(app.getStatus().name());
-            dto.setType(app.getType().name());
+            dto.setType(app.getType() != null ? app.getType().name() : null);
             dto.setCreatedAt(app.getCreatedAt());
             dto.setIdentityVerified(app.getWorker().getUserEntity().getIdentityVerified());
             dto.setJobTitle(job.getTitle());
@@ -216,8 +267,9 @@ public class ApplicationServiceImpl implements ApplicationService {
             Optional<ReviewEntity> myReview = reviewRepository.findByApplicationIdAndReviewerId(app.getId(), currentUser.getId());
             dto.setIsReviewed(myReview.isPresent());
             dto.setReviewRating(myReview.map(ReviewEntity::getRating).orElse(null));
-            dto.setReviewComment(myReview.map(ReviewEntity::getComment).orElse(null));
-            dto.setIsDisputed(Boolean.TRUE.equals(app.getIsDisputed()) || reportRepository.existsByApplicationId(app.getId()));
+            boolean hasEmployerReported = reportRepository.existsByApplicationIdAndReporterId(app.getId(), currentUser.getId());
+            dto.setHasReported(hasEmployerReported);
+            dto.setIsDisputed(Boolean.TRUE.equals(app.getIsDisputed()));
             dto.setEmployerConfirmed(app.getEmployerConfirmed());
             dto.setWorkerConfirmed(app.getWorkerConfirmed());
             dto.setEarnedAmount(app.getEarnedAmount());
@@ -365,7 +417,11 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         applicationRepository.save(application);
 
+        String workerAvatar = (application.getWorker() != null && application.getWorker().getUserEntity() != null)
+                ? application.getWorker().getUserEntity().getAvatarUrl() : null;
+
         socketPayload.put("workerName", workerName);
+        socketPayload.put("workerAvatar", workerAvatar);
         socketPayload.put("action", request.getAction());
         socketPayload.put("time", timeString);
 
@@ -375,6 +431,7 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .applicationId(application.getId())
                 .jobId(job.getId())
                 .workerName(workerName)
+                .workerAvatar(workerAvatar)
                 .action(request.getAction())
                 .time(timeString)
                 .hoursWorked(hoursWorked)
@@ -400,7 +457,7 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         application.setWorkerConfirmed(true);
 
-        // Chỉ khi CẢ 2 BÊN xác nhận (Thợ nhận đủ tiền + Chủ hài lòng) thì mới KẾT THÚC (COMPLETED)
+        // Chỉ khi CẢ 2 BÊN xác nhận (Ứng viên nhận đủ tiền + Nhà tuyển dụng hài lòng) thì mới KẾT THÚC (COMPLETED)
         boolean bothConfirmed = Boolean.TRUE.equals(application.getEmployerConfirmed());
         if (bothConfirmed) {
             application.setStatus(ApplicationStatus.COMPLETED);
@@ -435,7 +492,7 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         application.setEmployerConfirmed(true);
 
-        // Chỉ khi CẢ 2 BÊN xác nhận (Thợ nhận đủ tiền + Chủ hài lòng) thì mới KẾT THÚC (COMPLETED)
+        // Chỉ khi CẢ 2 BÊN xác nhận (Ứng viên nhận đủ tiền + Nhà tuyển dụng hài lòng) thì mới KẾT THÚC (COMPLETED)
         boolean bothConfirmed = Boolean.TRUE.equals(application.getWorkerConfirmed());
         if (bothConfirmed) {
             application.setStatus(ApplicationStatus.COMPLETED);

@@ -31,6 +31,9 @@ public class UserEntity {
     @Column(name = "current_mode", nullable = false, length = 10)
     private String currentMode = "WORKER";
 
+    @Column(name = "role", nullable = false, length = 20)
+    private String role = "USER";
+
     @Column(nullable = false, length = 10)
     private String status = "ACTIVE";
 

@@ -1,4 +1,7 @@
-src/main/resources/credentials.json
+# Ignore secrets anywhere in the project
+serviceAccountKey.json
+credentials.json
+
 target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/

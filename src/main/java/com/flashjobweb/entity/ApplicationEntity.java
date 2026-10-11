@@ -62,4 +62,23 @@ public class ApplicationEntity {
 
     @OneToMany(mappedBy = "application")
     private List<ReportEntity> reportEntities;
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
+        if (this.employerConfirmed == null) {
+            this.employerConfirmed = false;
+        }
+        if (this.workerConfirmed == null) {
+            this.workerConfirmed = false;
+        }
+        if (this.isDisputed == null) {
+            this.isDisputed = false;
+        }
+        if (this.status == null) {
+            this.status = ApplicationStatus.PENDING;
+        }
+    }
 }
