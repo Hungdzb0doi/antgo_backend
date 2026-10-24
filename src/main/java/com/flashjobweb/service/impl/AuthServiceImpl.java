@@ -68,19 +68,66 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
     private final JavaMailSender javaMailSender;
+
+    private boolean sendOtpViaBrevoHttp(String apiKey, String recipientEmail, String otp) {
+        try {
+            String jsonPayload = String.format(
+                "{\"sender\":{\"name\":\"AntGo Support\",\"email\":\"satan22072005@gmail.com\"},\"to\":[{\"email\":\"%s\"}],\"subject\":\"Mã OTP đặt lại mật khẩu AntGo\",\"htmlContent\":\"<p>Mã OTP đặt lại mật khẩu của bạn là: <strong style='font-size:20px;color:#ea580c;'>%s</strong> (Hiệu lực 5 phút).</p>\"}",
+                recipientEmail, otp
+            );
+
+            java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                .uri(java.net.URI.create("https://api.brevo.com/v3/smtp/email"))
+                .header("api-key", apiKey.trim())
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonPayload))
+                .timeout(java.time.Duration.ofSeconds(5))
+                .build();
+
+            java.net.http.HttpResponse<String> response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                System.out.println("[AntGo Brevo] Gửi OTP thành công qua HTTP tới: " + recipientEmail);
+                return true;
+            } else {
+                System.err.println("[AntGo Brevo] Gửi OTP thất bại, status: " + response.statusCode() + ", body: " + response.body());
+            }
+        } catch (Exception ex) {
+            System.err.println("[AntGo Brevo] Lỗi gọi Brevo API: " + ex.getMessage());
+        }
+        return false;
+    }
+
     @Override
-    public void generateAndSendOtp(String email) {
-        UserEntity user=userRepository.findByEmail(email)
-                .orElseThrow(()->new AppException(ErrorCode.USER_NOT_FOUND));
-        user.setResetPasswordOtp(String.format("%06d",new Random().nextInt(999999)));
+    public String generateAndSendOtp(String email) {
+        UserEntity user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        String otp = String.format("%06d", new Random().nextInt(999999));
+        user.setResetPasswordOtp(otp);
         user.setOtpTime(LocalDateTime.now().plusMinutes(5));
         userRepository.save(user);
 
-        SimpleMailMessage mailMessage=new SimpleMailMessage();
-        mailMessage.setTo(email);
-        mailMessage.setSubject("Your OTP for Password Reset");
-        mailMessage.setText("Your OTP for password reset is: " + user.getResetPasswordOtp());
-        javaMailSender.send(mailMessage);
+        boolean sent = false;
+        String brevoKey = System.getenv("BREVO_API_KEY");
+        if (brevoKey != null && !brevoKey.isBlank()) {
+            sent = sendOtpViaBrevoHttp(brevoKey, email, otp);
+        }
+
+        if (!sent) {
+            try {
+                SimpleMailMessage mailMessage = new SimpleMailMessage();
+                mailMessage.setTo(email);
+                mailMessage.setSubject("Your OTP for Password Reset - AntGo");
+                mailMessage.setText("Your OTP for password reset is: " + otp);
+                javaMailSender.send(mailMessage);
+                sent = true;
+            } catch (Exception e) {
+                System.err.println("[AntGo Mail] Không thể gửi email qua SMTP (do Render chặn cổng 587 hoặc chưa cấu hình mkud): " + e.getMessage());
+                System.out.println(">>> [AntGo OTP Live Demo] Mã OTP của email " + email + " là: " + otp);
+            }
+        }
+        return otp;
     }
     @Override
     public void checkOtp(RequestResetPasswordDTO requestResetPasswordDTO) {
