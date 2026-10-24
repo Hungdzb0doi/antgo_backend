@@ -80,16 +80,9 @@ const API_BASE_URL = (window.location.protocol.startsWith('http'))
 
             if (data.code === 201 ) {
                 currentEmail = email; // Lưu email lại cho bước 3
-                if (data.data) {
-                    document.getElementById('fp-email-echo').innerHTML = 
-                        'Mã xác nhận đã tạo cho email <b>' + email + '</b>' +
-                        '<div style="margin-top:10px;padding:8px 12px;background:#fff8e6;border:1px solid #ffd591;border-radius:8px;color:#d46b08;font-size:13px;">' +
-                        '⚡ <b>Mã OTP:</b> <span style="font-size:17px;font-weight:700;letter-spacing:3px;color:#d9534f;margin-left:4px;">' + data.data + '</span> (đã tự điền)</div>';
-                    var codeInput = document.getElementById('fp-code');
-                    if (codeInput) codeInput.value = data.data;
-                } else {
-                    document.getElementById('fp-email-echo').innerHTML = 'Mã xác nhận đã được gửi tới email <b>' + email + '</b>';
-                }
+                document.getElementById('fp-email-echo').innerHTML = 'Mã xác nhận 6 số đã được gửi tới email <b>' + email + '</b>.<br><small style="color:var(--text-muted);font-size:12px;">Vui lòng kiểm tra hộp thư đến (hoặc thư mục Spam/Rác) để lấy mã.</small>';
+                var codeInput = document.getElementById('fp-code');
+                if (codeInput) codeInput.value = '';
                 goStep(2);
             } else {
                 showErr('err-fp-email', data.message || 'Email không tồn tại trong hệ thống');

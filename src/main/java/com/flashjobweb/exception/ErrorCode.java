@@ -19,6 +19,7 @@ public enum ErrorCode {
     TOKEN_EXPIRED(1002, "Token đã hết hạn", HttpStatus.UNAUTHORIZED),
     TOKEN_INVALID(1003, "Token không hợp lệ", HttpStatus.UNAUTHORIZED),
     REFRESH_TOKEN_INVALID(1004, "Refresh token không hợp lệ", HttpStatus.UNAUTHORIZED),
+    CANNOT_SEND_EMAIL(1005, "Không thể gửi email xác nhận. Vui lòng kiểm tra lại dịch vụ email", HttpStatus.INTERNAL_SERVER_ERROR),
 
     // ===== USER =====
     USER_NOT_FOUND(2000, "Không tìm thấy người dùng", HttpStatus.NOT_FOUND),

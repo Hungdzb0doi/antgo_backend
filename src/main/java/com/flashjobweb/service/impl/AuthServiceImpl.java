@@ -111,7 +111,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public String generateAndSendOtp(String email) {
+    public void generateAndSendOtp(String email) {
         UserEntity user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
         String otp = String.format("%06d", new Random().nextInt(999999));
@@ -129,16 +129,18 @@ public class AuthServiceImpl implements AuthService {
             try {
                 SimpleMailMessage mailMessage = new SimpleMailMessage();
                 mailMessage.setTo(email);
-                mailMessage.setSubject("Your OTP for Password Reset - AntGo");
-                mailMessage.setText("Your OTP for password reset is: " + otp);
+                mailMessage.setSubject("Mã OTP đặt lại mật khẩu AntGo");
+                mailMessage.setText("Mã xác nhận đặt lại mật khẩu của bạn là: " + otp + "\nMã có hiệu lực trong 5 phút.");
                 javaMailSender.send(mailMessage);
                 sent = true;
             } catch (Exception e) {
-                System.err.println("[AntGo Mail] Không thể gửi email qua SMTP (do Render chặn cổng 587 hoặc chưa cấu hình mkud): " + e.getMessage());
-                System.out.println(">>> [AntGo OTP Live Demo] Mã OTP của email " + email + " là: " + otp);
+                System.err.println("[AntGo Mail] Không thể gửi email qua SMTP: " + e.getMessage());
             }
         }
-        return otp;
+
+        if (!sent) {
+            throw new AppException(ErrorCode.CANNOT_SEND_EMAIL);
+        }
     }
     @Override
     public void checkOtp(RequestResetPasswordDTO requestResetPasswordDTO) {

@@ -34,13 +34,9 @@ public class AuthAPI {
     }
 
     @PostMapping("/otp")
-    public ResponseEntity<ApiResponse<String>> forgotPassword(@RequestParam String email) {
-        String otp = authService.generateAndSendOtp(email);
-        return ResponseEntity.ok(ApiResponse.<String>builder()
-                .code(201)
-                .message("Created")
-                .data(otp)
-                .build());
+    public ResponseEntity<ApiResponse<Object>> forgotPassword(@RequestParam String email) {
+        authService.generateAndSendOtp(email);
+        return ResponseEntity.ok(ApiResponse.created());
     }
     @PostMapping("/ckotp")
     public ResponseEntity<ApiResponse<Object>> checkOtp(@RequestBody RequestResetPasswordDTO requestResetPasswordDTO) {
