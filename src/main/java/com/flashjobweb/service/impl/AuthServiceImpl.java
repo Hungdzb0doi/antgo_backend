@@ -71,9 +71,13 @@ public class AuthServiceImpl implements AuthService {
 
     private boolean sendOtpViaBrevoHttp(String apiKey, String recipientEmail, String otp) {
         try {
+            String senderEmail = System.getenv("BREVO_SENDER_EMAIL");
+            if (senderEmail == null || senderEmail.isBlank()) {
+                senderEmail = "satan22072005@gmail.com";
+            }
             String jsonPayload = String.format(
-                "{\"sender\":{\"name\":\"AntGo Support\",\"email\":\"satan22072005@gmail.com\"},\"to\":[{\"email\":\"%s\"}],\"subject\":\"Mã OTP đặt lại mật khẩu AntGo\",\"htmlContent\":\"<p>Mã OTP đặt lại mật khẩu của bạn là: <strong style='font-size:20px;color:#ea580c;'>%s</strong> (Hiệu lực 5 phút).</p>\"}",
-                recipientEmail, otp
+                "{\"sender\":{\"name\":\"AntGo Support\",\"email\":\"%s\"},\"to\":[{\"email\":\"%s\"}],\"subject\":\"Mã OTP đặt lại mật khẩu AntGo\",\"htmlContent\":\"<p>Mã OTP đặt lại mật khẩu của bạn là: <strong style='font-size:20px;color:#ea580c;'>%s</strong> (Hiệu lực 5 phút).</p>\"}",
+                senderEmail, recipientEmail, otp
             );
 
             java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
