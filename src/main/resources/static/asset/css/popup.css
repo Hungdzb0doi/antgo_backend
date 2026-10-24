@@ -1,0 +1,376 @@
+/* ==============================================================================
+   ANTGO PROFESSIONAL POPUP & TOAST NOTIFICATION SYSTEM
+   Tuân thủ 100% hệ thống màu chuẩn của AntGo:
+   --primary-orange: #FF6600
+   --primary-hover:  #E55C00
+   --primary-light:  #FFF0E6
+   --white-surface:  #FFFFFF
+   --bg-light:       #F4F4F5
+   --border-line:    #E4E4E7
+   --black-main:     #18181B
+   --black-sub:      #3F3F46
+   --text-muted:     #71717A
+   ============================================================================== */
+
+:root {
+  /* Màu chủ đạo theo hệ thống web AntGo */
+  --antgo-brand-orange: #FF6600;
+  --antgo-brand-hover: #E55C00;
+  --antgo-brand-light: #FFF0E6;
+
+  /* Màu bề mặt và khung nền (Trắng tinh khiết chuẩn web) */
+  --antgo-modal-bg: #FFFFFF;
+  --antgo-modal-border: #E4E4E7;
+  --antgo-modal-shadow: 0 20px 45px -8px rgba(0, 0, 0, 0.14), 0 0 1px 1px rgba(0, 0, 0, 0.04);
+
+  /* Màu chữ */
+  --antgo-text-title: #18181B;
+  --antgo-text-body: #3F3F46;
+  --antgo-text-muted: #71717A;
+
+  /* Nút bấm thứ cấp / Hủy bỏ */
+  --antgo-btn-cancel-bg: #F4F4F5;
+  --antgo-btn-cancel-border: #E4E4E7;
+  --antgo-btn-cancel-text: #18181B;
+  --antgo-btn-cancel-hover: #E4E4E7;
+
+  /* Màu trạng thái đồng bộ với hệ thống Web */
+  --antgo-color-success: #16A34A;
+  --antgo-bg-success: #DCFCE7;
+  --antgo-border-success: rgba(22, 163, 74, 0.3);
+
+  --antgo-color-error: #DC2626;
+  --antgo-bg-error: #FEE2E2;
+  --antgo-border-error: rgba(220, 38, 38, 0.3);
+
+  --antgo-color-warning: #D97706;
+  --antgo-bg-warning: #FEF3C7;
+  --antgo-border-warning: rgba(217, 119, 6, 0.3);
+
+  --antgo-color-info: #FF6600;
+  --antgo-bg-info: #FFF0E6;
+  --antgo-border-info: rgba(255, 102, 0, 0.3);
+}
+
+/* Hỗ trợ chế độ tối khi trang bật [data-theme="dark"] hoặc .dark-theme */
+[data-theme="dark"], body.dark-theme {
+  --antgo-modal-bg: #18181B;
+  --antgo-modal-border: rgba(255, 255, 255, 0.12);
+  --antgo-modal-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
+
+  --antgo-text-title: #FFFFFF;
+  --antgo-text-body: #A1A1AA;
+  --antgo-text-muted: #71717A;
+
+  --antgo-btn-cancel-bg: rgba(255, 255, 255, 0.08);
+  --antgo-btn-cancel-border: rgba(255, 255, 255, 0.12);
+  --antgo-btn-cancel-text: #FFFFFF;
+  --antgo-btn-cancel-hover: rgba(255, 255, 255, 0.15);
+
+  --antgo-bg-success: rgba(22, 163, 74, 0.18);
+  --antgo-bg-error: rgba(220, 38, 38, 0.18);
+  --antgo-bg-warning: rgba(217, 119, 6, 0.18);
+  --antgo-bg-info: rgba(255, 102, 0, 0.18);
+}
+
+/* ==========================================
+   1. MODAL DIALOG POPUP (Thay thế alert/confirm)
+   ========================================== */
+.antgo-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999999;
+  padding: 16px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.22s ease;
+}
+
+.antgo-modal-backdrop.antgo-modal-show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.antgo-modal-card {
+  background: var(--antgo-modal-bg);
+  border: 1px solid var(--antgo-modal-border);
+  border-radius: 18px;
+  width: 100%;
+  max-width: 420px;
+  padding: 28px 24px 22px;
+  box-shadow: var(--antgo-modal-shadow);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transform: scale(0.94) translateY(8px);
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+  color: var(--antgo-text-title);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.antgo-modal-backdrop.antgo-modal-show .antgo-modal-card {
+  transform: scale(1) translateY(0);
+}
+
+/* Huy hiệu Icon biểu tượng */
+.antgo-modal-icon-badge {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  margin-bottom: 16px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.antgo-modal-icon-badge::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  opacity: 0.35;
+  animation: antgoPulseRing 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+@keyframes antgoPulseRing {
+  0%, 100% { transform: scale(1); opacity: 0.35; }
+  50% { transform: scale(1.1); opacity: 0.1; }
+}
+
+/* Các loại icon tuân thủ bảng màu chuẩn của web */
+.antgo-modal-icon-badge.success {
+  background: var(--antgo-bg-success);
+  color: var(--antgo-color-success);
+}
+.antgo-modal-icon-badge.success::after {
+  border: 2px solid var(--antgo-border-success);
+}
+
+.antgo-modal-icon-badge.error {
+  background: var(--antgo-bg-error);
+  color: var(--antgo-color-error);
+}
+.antgo-modal-icon-badge.error::after {
+  border: 2px solid var(--antgo-border-error);
+}
+
+.antgo-modal-icon-badge.warning {
+  background: var(--antgo-bg-warning);
+  color: var(--antgo-color-warning);
+}
+.antgo-modal-icon-badge.warning::after {
+  border: 2px solid var(--antgo-border-warning);
+}
+
+.antgo-modal-icon-badge.info {
+  background: var(--antgo-bg-info);
+  color: var(--antgo-brand-orange);
+}
+.antgo-modal-icon-badge.info::after {
+  border: 2px solid var(--antgo-border-info);
+}
+
+/* Tiêu đề & Nội dung */
+.antgo-modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  color: var(--antgo-text-title);
+  letter-spacing: -0.2px;
+}
+
+.antgo-modal-message {
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--antgo-text-body);
+  margin: 0 0 22px 0;
+  word-break: break-word;
+  white-space: pre-line;
+}
+
+/* Nút bấm hành động */
+.antgo-modal-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.antgo-modal-btn {
+  flex: 1;
+  padding: 11px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  outline: none;
+  font-family: inherit;
+}
+
+.antgo-modal-btn:active {
+  transform: scale(0.98);
+}
+
+/* Nút Đồng ý: Chuẩn cam AntGo (#FF6600 -> #E55C00) */
+.antgo-modal-btn-confirm {
+  background: var(--antgo-brand-orange);
+  color: #FFFFFF;
+  box-shadow: 0 3px 12px rgba(255, 102, 0, 0.32);
+}
+
+.antgo-modal-btn-confirm:hover {
+  background: var(--antgo-brand-hover);
+  box-shadow: 0 5px 16px rgba(255, 102, 0, 0.42);
+}
+
+/* Nút Hủy: Nền sáng nhẹ viền chuẩn web (#F4F4F5 / #E4E4E7) */
+.antgo-modal-btn-cancel {
+  background: var(--antgo-btn-cancel-bg);
+  border: 1px solid var(--antgo-btn-cancel-border);
+  color: var(--antgo-btn-cancel-text);
+}
+
+.antgo-modal-btn-cancel:hover {
+  background: var(--antgo-btn-cancel-hover);
+}
+
+/* ==========================================
+   2. TOAST NOTIFICATIONS (Góc trên bên phải)
+   ========================================== */
+.antgo-toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 9999998;
+  pointer-events: none;
+  max-width: calc(100vw - 32px);
+}
+
+@media (max-width: 600px) {
+  .antgo-toast-container {
+    top: 14px;
+    right: 14px;
+    left: 14px;
+  }
+}
+
+.antgo-toast-item {
+  pointer-events: auto;
+  min-width: 280px;
+  max-width: 420px;
+  background: var(--antgo-modal-bg);
+  border: 1px solid var(--antgo-modal-border);
+  border-radius: 12px;
+  padding: 13px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.1), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+  color: var(--antgo-text-title);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  position: relative;
+  overflow: hidden;
+  transform: translateX(110%);
+  opacity: 0;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.24s ease;
+}
+
+.antgo-toast-item.antgo-toast-visible {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.antgo-toast-item.antgo-toast-hiding {
+  transform: translateX(110%);
+  opacity: 0;
+}
+
+@media (max-width: 600px) {
+  .antgo-toast-item {
+    transform: translateY(-30px);
+  }
+  .antgo-toast-item.antgo-toast-visible {
+    transform: translateY(0);
+  }
+  .antgo-toast-item.antgo-toast-hiding {
+    transform: translateY(-30px);
+  }
+}
+
+/* Icon của Toast */
+.antgo-toast-icon {
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.antgo-toast-item.success .antgo-toast-icon { color: var(--antgo-color-success); }
+.antgo-toast-item.error .antgo-toast-icon { color: var(--antgo-color-error); }
+.antgo-toast-item.warning .antgo-toast-icon { color: var(--antgo-color-warning); }
+.antgo-toast-item.info .antgo-toast-icon { color: var(--antgo-brand-orange); }
+
+/* Nội dung Toast */
+.antgo-toast-body {
+  flex: 1;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--antgo-text-title);
+  word-break: break-word;
+}
+
+.antgo-toast-close {
+  background: none;
+  border: none;
+  color: var(--antgo-text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+
+.antgo-toast-close:hover {
+  color: var(--antgo-text-title);
+}
+
+/* Thanh đếm thời gian Progress Bar */
+.antgo-toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  width: 100%;
+  transform-origin: left;
+  opacity: 0.85;
+}
+
+.antgo-toast-item.success .antgo-toast-progress { background: var(--antgo-color-success); }
+.antgo-toast-item.error .antgo-toast-progress { background: var(--antgo-color-error); }
+.antgo-toast-item.warning .antgo-toast-progress { background: var(--antgo-color-warning); }
+.antgo-toast-item.info .antgo-toast-progress { background: var(--antgo-brand-orange); }

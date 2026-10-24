@@ -1,0 +1,28 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### Secrets and credentials ###
+*.json
+!pom.xml
+credentials.json
+serviceAccountKey.json
+*.p12
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+
+### Build and scratch ###
+k6.exe
+k6_help.txt
+*.log
+*.pdf
+build_full_report.py
+seed_users.py
+demo_500_users.js
+load_test*.js
+Tai_Lieu_Thuyet_Trinh_Va_So_Do_Ham_AntGo.*

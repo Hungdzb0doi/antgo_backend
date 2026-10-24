@@ -1,0 +1,312 @@
+const API_BASE_URL = (window.location.protocol.startsWith('http')) 
+    ? '/api/v1/auth' 
+    : 'https://localhost:8083/api/v1/auth';
+
+    // Nếu đã đăng nhập, tự động chuyển vào trang Quản lý tương ứng hoặc trang redirect
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Mở tab đăng ký nếu có param mode=register
+        if (urlParams.get('mode') === 'register') {
+            showTab('register');
+        }
+
+        // Cho phép người dùng chuyển tài khoản hoặc đăng xuất khi bấm ?switch=true hoặc ?logout=true
+        if (urlParams.get('switch') === 'true' || urlParams.get('logout') === 'true') {
+            localStorage.clear();
+            return;
+        }
+
+        const token = localStorage.getItem('accessToken');
+        const role = localStorage.getItem('userRole');
+        const mode = (localStorage.getItem('currentMode') || 'WORKER').toUpperCase();
+        const redirectParam = urlParams.get('redirect');
+
+        if (token) {
+            if (role === 'ROLE_ADMIN') {
+                window.location.href = '/interface/admin';
+                return;
+            }
+
+            // Xử lý trang redirect nếu hợp lệ
+            if (redirectParam && !redirectParam.includes('/interface/unauthorized') && !redirectParam.includes('401') && !redirectParam.includes('authentication')) {
+                const isEmployerDest = ['/interface/managejob', '/interface/createjob', '/interface/findworker', '/interface/checkapplication', '/interface/generateqr'].some(p => redirectParam.includes(p));
+                const isWorkerDest = ['/interface/findjob', '/interface/manageapplication', '/interface/scanner'].some(p => redirectParam.includes(p));
+
+                if (isEmployerDest && mode !== 'EMPLOYER') {
+                    localStorage.setItem('currentMode', 'EMPLOYER');
+                    fetch('/api/v1/profile/mode?mode=EMPLOYER', { method: 'PATCH', headers: { 'Authorization': 'Bearer ' + token } }).catch(() => {});
+                } else if (isWorkerDest && mode !== 'WORKER') {
+                    localStorage.setItem('currentMode', 'WORKER');
+                    fetch('/api/v1/profile/mode?mode=WORKER', { method: 'PATCH', headers: { 'Authorization': 'Bearer ' + token } }).catch(() => {});
+                }
+                window.location.href = redirectParam;
+                return;
+            }
+
+            // Điều hướng mặc định: Employer -> managejob, Worker -> findjob
+            window.location.href = (mode === 'EMPLOYER') ? '/interface/managejob' : '/interface/findjob';
+        }
+    });
+
+    // Hàm chuyển đổi Tab
+    function showTab(tab) {
+        document.getElementById('form-login').style.display = tab === 'login' ? 'flex' : 'none';
+        document.getElementById('form-register').style.display = tab === 'register' ? 'flex' : 'none';
+
+        document.getElementById('tab-login').style.borderBottomColor = tab === 'login' ? 'var(--primary-orange)' : 'transparent';
+        document.getElementById('tab-login').style.color = tab === 'login' ? 'var(--primary-orange)' : 'var(--text-secondary)';
+        document.getElementById('tab-login').style.fontWeight = tab === 'login' ? '700' : '500';
+
+        document.getElementById('tab-register').style.borderBottomColor = tab === 'register' ? 'var(--primary-orange)' : 'transparent';
+        document.getElementById('tab-register').style.color = tab === 'register' ? 'var(--primary-orange)' : 'var(--text-secondary)';
+        document.getElementById('tab-register').style.fontWeight = tab === 'register' ? '700' : '500';
+    }
+
+    // Hàm xóa lỗi và viền
+    function clearErr(id) {
+        var e = document.getElementById(id);
+        if(e) { e.style.display = 'none'; e.textContent = ''; }
+        var inputId = id.replace('err-', '');
+        var inputEl = document.getElementById(inputId);
+        if(inputEl) inputEl.classList.remove('input-error');
+    }
+
+    // Hàm hiện lỗi và thêm viền đỏ
+    function showErr(id, msg) {
+        var e = document.getElementById(id);
+        if(e) { e.textContent = msg; e.style.display = 'block'; }
+        var inputId = id.replace('err-', '');
+        var inputEl = document.getElementById(inputId);
+        if(inputEl) {
+            inputEl.classList.add('input-error');
+            inputEl.addEventListener('input', function() { clearErr(id); }, { once: true });
+        }
+    }
+
+    // Hàm bật/tắt hiển thị mật khẩu
+    function togglePassword(inputId, iconId) {
+        var input = document.getElementById(inputId);
+        var icon = document.getElementById(iconId);
+        if (input.type === "password") {
+            input.type = "text";
+            icon.classList.remove("ti-eye");
+            icon.classList.add("ti-eye-off");
+        } else {
+            input.type = "password";
+            icon.classList.remove("ti-eye-off");
+            icon.classList.add("ti-eye");
+        }
+    }
+
+
+    function submitLogin(ev) {
+        ev.preventDefault();
+        ['err-login-phone', 'err-login-password'].forEach(clearErr);
+        document.getElementById('login-success').style.display = 'none';
+
+        var phone = document.getElementById('login-phone').value.trim();
+        var pass = document.getElementById('login-password').value;
+        var ok = true;
+
+        var cleanPhone = phone.replace(/[\s\-\.]/g, '');
+        if (!/^0\d{9}$/.test(cleanPhone)) { showErr('err-login-phone','Vui lòng nhập số điện thoại hợp lệ (10 số)'); ok=false; }
+        if (pass.length < 1) { showErr('err-login-password','Vui lòng nhập mật khẩu'); ok=false; }
+
+        if (ok) {
+            var btn = document.getElementById('btn-login');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ti ti-loader ti-spin"></i> Đang đăng nhập...';
+
+            // GỌI API LOGIN
+            fetch(API_BASE_URL + '/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+
+                body: JSON.stringify({
+                    phone: cleanPhone,
+                    password: pass
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.innerHTML = 'Đăng nhập';
+
+                // Dựa vào JSON của bạn, cứ code === 200 là thành công
+                if (data.code === 200 && data.data) {
+                    document.getElementById('login-success').style.display = 'block';
+
+                    const token = data.data.token;
+                    localStorage.setItem('accessToken', token);
+
+                    const roles = data.data.roles || [];
+                    const isAdmin = roles.includes('ROLE_ADMIN');
+
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const requestedRole = (urlParams.get('role') || '').toUpperCase();
+                    const redirectParam = urlParams.get('redirect');
+
+                    // Phân loại mục đích theo trang chuyển hướng
+                    const isEmployerDest = redirectParam && ['/interface/managejob', '/interface/createjob', '/interface/findworker', '/interface/checkapplication', '/interface/generateqr'].some(p => redirectParam.includes(p));
+                    const isWorkerDest = redirectParam && ['/interface/findjob', '/interface/manageapplication', '/interface/scanner'].some(p => redirectParam.includes(p));
+
+                    let targetMode = 'WORKER';
+                    if (isAdmin) {
+                        localStorage.setItem('userRole', 'ROLE_ADMIN');
+                        localStorage.setItem('isAdmin', 'true');
+                    } else {
+                        if (requestedRole === 'EMPLOYER' || isEmployerDest) {
+                            targetMode = 'EMPLOYER';
+                        } else if (requestedRole === 'WORKER' || isWorkerDest) {
+                            targetMode = 'WORKER';
+                        } else if (roles.includes('ROLE_EMPLOYER') && !roles.includes('ROLE_WORKER')) {
+                            targetMode = 'EMPLOYER';
+                        } else {
+                            targetMode = 'WORKER';
+                        }
+
+                        localStorage.setItem('userRole', 'ROLE_' + targetMode);
+                        localStorage.setItem('currentMode', targetMode);
+                        localStorage.removeItem('isAdmin');
+
+                        // Đồng bộ vai trò kích hoạt lên backend
+                        fetch('/api/v1/profile/mode?mode=' + targetMode, {
+                            method: 'PATCH',
+                            headers: { 'Authorization': 'Bearer ' + token }
+                        }).catch(e => console.error('Mode sync error:', e));
+                    }
+
+                    // Tải dữ liệu Profile để lưu nhanh tên và avatar cho thanh header
+                    fetch('/api/v1/profile', {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    })
+                    .then(res => res.json())
+                    .then(resData => {
+                        if (resData.code === 200 && resData.data) {
+                            if (resData.data.userId) localStorage.setItem('userId', resData.data.userId);
+                            if (resData.data.phone) localStorage.setItem('userPhone', resData.data.phone);
+                            if (resData.data.fullName) localStorage.setItem('userFullName', resData.data.fullName);
+                            if (resData.data.avatarUrl) localStorage.setItem('userAvatar', resData.data.avatarUrl);
+                        }
+                    })
+                    .catch(() => {})
+                    .finally(() => {
+                        setTimeout(function() {
+                            if (isAdmin) {
+                                window.location.href = '/interface/admin';
+                                return;
+                            }
+
+                            // Chuyển hướng theo param nếu hợp lệ
+                            if (redirectParam && !redirectParam.includes('/interface/unauthorized') && !redirectParam.includes('401') && !redirectParam.includes('authentication')) {
+                                window.location.href = redirectParam;
+                                return;
+                            }
+
+                            // Mặc định: Nhà tuyển dụng -> managejob, Ứng viên -> findjob (bản đồ radar)
+                            if (targetMode === 'EMPLOYER') {
+                                window.location.href = '/interface/managejob';
+                            } else {
+                                window.location.href = '/interface/findjob';
+                            }
+                        }, 500);
+                    });
+
+                } else {
+                    // Xử lý khi đăng nhập sai (sai pass, không tồn tại user...)
+                    showErr('err-login-password', data.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin!');
+                }
+            })
+            .catch(error => {
+                btn.disabled = false;
+                btn.innerHTML = 'Đăng nhập';
+                showErr('err-login-password', 'Lỗi kết nối máy chủ. Vui lòng thử lại!');
+                console.error('Login Error:', error);
+            });
+        }
+        return false;
+    }
+
+
+    function submitRegister(ev) {
+        ev.preventDefault();
+        ['err-reg-name','err-reg-phone','err-reg-email','err-reg-password','err-reg-password2','err-reg-terms'].forEach(clearErr);
+        document.getElementById('register-success').style.display = 'none';
+
+        var name = document.getElementById('reg-name').value.trim();
+        var phone = document.getElementById('reg-phone').value.trim();
+        var email = document.getElementById('reg-email').value.trim();
+        var pass = document.getElementById('reg-password').value;
+        var pass2 = document.getElementById('reg-password2').value;
+        var terms = document.getElementById('reg-terms').checked;
+        var ok = true;
+
+        if (name.length < 2) { showErr('err-reg-name','Vui lòng nhập họ và tên'); ok=false; }
+
+        var cleanPhone = phone.replace(/[\s\-\.]/g, '');
+        if (!/^0\d{9}$/.test(cleanPhone)) { showErr('err-reg-phone','Vui lòng nhập số điện thoại hợp lệ (10 số)'); ok=false; }
+
+        var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!email) {
+            showErr('err-reg-email','Vui lòng nhập địa chỉ email'); ok=false;
+        } else if (!emailRegex.test(email)) {
+            showErr('err-reg-email','Email không đúng định dạng'); ok=false;
+        }
+
+        if (pass.length < 8) { showErr('err-reg-password','Mật khẩu phải tối thiểu 8 ký tự'); ok=false; }
+        if (pass2 !== pass || pass2.length===0) { showErr('err-reg-password2','Mật khẩu xác nhận không khớp'); ok=false; }
+        if (!terms) { showErr('err-reg-terms','Bạn cần đồng ý điều khoản để tiếp tục'); ok=false; }
+
+        if (ok) {
+            var btn = document.getElementById('btn-register');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ti ti-loader ti-spin"></i> Đang đăng ký...';
+
+            // GỌI API REGISTER
+            fetch(API_BASE_URL + '/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+
+                body: JSON.stringify({
+                    fullName: name,
+                    phone: cleanPhone,
+                    email: email,
+                    passwordHash: pass
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.innerHTML = 'Đăng ký';
+
+                // Check thành công (200 hoặc 201 Created)
+                if (data.code === 200 || data.code === 201 || data.message === 'Success' || data.message === 'Created') {
+                    document.getElementById('register-success').style.display = 'block';
+
+
+                    setTimeout(function() {
+                        showTab('login');
+                        document.getElementById('login-phone').value = cleanPhone;
+                        document.getElementById('register-success').style.display = 'none';
+                        // Xóa trắng form đăng ký
+                        document.getElementById('form-register').reset();
+                    }, 2000);
+                } else {
+
+                    showErr('err-reg-phone', data.message || 'Đăng ký thất bại');
+                }
+            })
+            .catch(error => {
+                btn.disabled = false;
+                btn.innerHTML = 'Đăng ký';
+                showErr('err-reg-terms', 'Lỗi kết nối máy chủ. Vui lòng thử lại!');
+                console.error('Register Error:', error);
+            });
+        }
+        return false;
+    }

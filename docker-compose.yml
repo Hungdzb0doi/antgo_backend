@@ -1,0 +1,86 @@
+services:
+  # ==========================================
+  # 1. Database: PostgreSQL 16 tích hợp PostGIS
+  # ==========================================
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: antgo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: seasonalwork
+      POSTGRES_USER: hung
+      POSTGRES_PASSWORD: "123456"
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hung -d seasonalwork"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - antgo-network
+
+  # ==========================================
+  # 2. In-Memory Cache: Redis 7
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: antgo-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - antgo-network
+
+  # ==========================================
+  # 3. Backend: AntGo Spring Boot 3
+  # ==========================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: antgo-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/seasonalwork
+      SPRING_DATASOURCE_USERNAME: hung
+      SPRING_DATASOURCE_PASSWORD: "123456"
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_PROFILES_ACTIVE: dev
+      TZ: Asia/Ho_Chi_Minh
+    networks:
+      - antgo-network
+
+# ==========================================
+# Cấu hình Lưu trữ Bền vững (Persistent Volumes)
+# ==========================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# ==========================================
+# Mạng Nội bộ Docker (Bridge Network)
+# ==========================================
+networks:
+  antgo-network:
+    driver: bridge

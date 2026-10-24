@@ -1,0 +1,10 @@
+.git
+.idea
+target/*
+!target/*.jar
+*.log
+*.exe
+*.pdf
+*.md
+docker-compose.yml
+.gitignore
