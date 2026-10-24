@@ -17,6 +17,7 @@ import com.flashjobweb.service.impl.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.mail.SimpleMailMessage;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -38,6 +39,12 @@ public class AuthServiceImpl implements AuthService {
     private final ModelMapper modelMapper;
     private final EmployerProfileRepository employerProfileRepository;
     private final WorkerProfileRepository workerProfileRepository;
+
+    @Value("${brevo.api.key:}")
+    private String brevoApiKey;
+
+    @Value("${brevo.sender.email:satan22072005@gmail.com}")
+    private String brevoSenderEmail;
     @Override
     public void register(RequestRegisterDTO requestRegisterDTO) {
         if (userRepository.existsByPhone(requestRegisterDTO.getPhone())){
@@ -71,7 +78,7 @@ public class AuthServiceImpl implements AuthService {
 
     private boolean sendOtpViaBrevoHttp(String apiKey, String recipientEmail, String otp) {
         try {
-            String senderEmail = System.getenv("BREVO_SENDER_EMAIL");
+            String senderEmail = (brevoSenderEmail != null && !brevoSenderEmail.isBlank()) ? brevoSenderEmail : System.getenv("BREVO_SENDER_EMAIL");
             if (senderEmail == null || senderEmail.isBlank()) {
                 senderEmail = "satan22072005@gmail.com";
             }
@@ -113,7 +120,7 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(user);
 
         boolean sent = false;
-        String brevoKey = System.getenv("BREVO_API_KEY");
+        String brevoKey = (brevoApiKey != null && !brevoApiKey.isBlank()) ? brevoApiKey : System.getenv("BREVO_API_KEY");
         if (brevoKey != null && !brevoKey.isBlank()) {
             sent = sendOtpViaBrevoHttp(brevoKey, email, otp);
         }
