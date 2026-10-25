@@ -4,6 +4,30 @@ let currentEkycFilter = 'PENDING';
 let currentReportFilter = 'PENDING';
 let reportsDataCache = [];
 
+// Lưu trữ hàm toast gốc từ popup.js để tránh đè hàm / đệ quy vô tận
+const _systemToast = (typeof window.showToast === 'function') ? window.showToast : null;
+function triggerToast(message, type = 'success') {
+    if (_systemToast) {
+        _systemToast(message, type);
+        return;
+    }
+    if (typeof window.showToast === 'function' && window.showToast !== triggerToast) {
+        window.showToast(message, type);
+        return;
+    }
+    const container = document.getElementById('toast-container');
+    if (container) {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 3500);
+    } else {
+        console.log(`[Toast ${type}]:`, message);
+    }
+}
+window.showToast = triggerToast;
+
 // ================= AUTH CHECK =================
 document.addEventListener('DOMContentLoaded', function () {
     const token = localStorage.getItem('accessToken');
@@ -24,6 +48,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     initSidebarNav();
+    loadDashboardStats();
 
     // Khôi phục bộ lọc đã lưu (nếu có)
     const savedEkycFilter = sessionStorage.getItem('adminEkycFilter');
@@ -41,13 +66,13 @@ document.addEventListener('DOMContentLoaded', function () {
         sessionStorage.removeItem('adminActionToast');
         try {
             const t = JSON.parse(pendingToast);
-            showToast(t.message, t.type);
+            triggerToast(t.message, t.type);
         } catch (e) {}
     }
 });
 
-// Hàm hỗ trợ tự động reload trang sau khi hoàn tất thao tác
-function reloadPageAfterAction(toastMsg = 'Thao tác thành công!', toastType = 'success', delayMs = 350) {
+// Hàm hỗ trợ tự động reload trang và cập nhật dữ liệu sau khi hoàn tất thao tác
+function reloadPageAfterAction(toastMsg = 'Thao tác thành công!', toastType = 'success', delayMs = 300) {
     sessionStorage.setItem('adminActiveTab', currentActiveTab);
     if (currentActiveTab === 'ekyc') {
         sessionStorage.setItem('adminEkycFilter', currentEkycFilter);
@@ -55,7 +80,24 @@ function reloadPageAfterAction(toastMsg = 'Thao tác thành công!', toastType =
         sessionStorage.setItem('adminReportFilter', currentReportFilter);
     }
     sessionStorage.setItem('adminActionToast', JSON.stringify({ message: toastMsg, type: toastType }));
-    showToast(toastMsg, toastType);
+
+    // Cập nhật dữ liệu giao diện ngay lập tức
+    if (currentActiveTab === 'ekyc') {
+        loadEkycRecords(currentEkycFilter);
+    } else if (currentActiveTab === 'reports') {
+        loadReports(currentReportFilter);
+    } else if (currentActiveTab === 'users') {
+        const userSearchInput = document.getElementById('user-search-input');
+        loadUsers(userSearchInput ? userSearchInput.value.trim() : '');
+    } else if (currentActiveTab === 'categories') {
+        loadCategories();
+    }
+    loadDashboardStats();
+
+    // Hiển thị thông báo ngay
+    triggerToast(toastMsg, toastType);
+
+    // Tự động tải lại trang sau 300ms
     setTimeout(() => {
         window.location.reload();
     }, delayMs);
@@ -355,8 +397,9 @@ function switchTab(tabName) {
 }
 
 function refreshCurrentTab() {
+    loadDashboardStats();
     switchTab(currentActiveTab);
-    showToast('Đã làm mới dữ liệu!', 'info');
+    triggerToast('Đã làm mới dữ liệu!', 'info');
 }
 
 // ================= 1. DASHBOARD =================
@@ -1066,11 +1109,8 @@ async function logoutAdmin() {
     }
 }
 
-function showToast(message, type = 'success') {
-    if (typeof window.showToast === 'function') {
-        window.showToast(message, type);
-    }
-}
+// Biến toàn cục alias cho triggerToast
+window.showToast = triggerToast;
 
 function formatDate(isoStr) {
     if (!isoStr) return '-';
