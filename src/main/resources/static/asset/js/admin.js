@@ -24,8 +24,42 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     initSidebarNav();
-    loadDashboardStats();
+
+    // Khôi phục bộ lọc đã lưu (nếu có)
+    const savedEkycFilter = sessionStorage.getItem('adminEkycFilter');
+    if (savedEkycFilter) currentEkycFilter = savedEkycFilter;
+    const savedReportFilter = sessionStorage.getItem('adminReportFilter');
+    if (savedReportFilter) currentReportFilter = savedReportFilter;
+
+    // Khôi phục tab đang mở trước đó
+    const savedTab = window.location.hash.replace('#', '') || sessionStorage.getItem('adminActiveTab') || 'dashboard';
+    switchTab(savedTab);
+
+    // Hiển thị thông báo sau khi reload (nếu có)
+    const pendingToast = sessionStorage.getItem('adminActionToast');
+    if (pendingToast) {
+        sessionStorage.removeItem('adminActionToast');
+        try {
+            const t = JSON.parse(pendingToast);
+            showToast(t.message, t.type);
+        } catch (e) {}
+    }
 });
+
+// Hàm hỗ trợ tự động reload trang sau khi hoàn tất thao tác
+function reloadPageAfterAction(toastMsg = 'Thao tác thành công!', toastType = 'success', delayMs = 350) {
+    sessionStorage.setItem('adminActiveTab', currentActiveTab);
+    if (currentActiveTab === 'ekyc') {
+        sessionStorage.setItem('adminEkycFilter', currentEkycFilter);
+    } else if (currentActiveTab === 'reports') {
+        sessionStorage.setItem('adminReportFilter', currentReportFilter);
+    }
+    sessionStorage.setItem('adminActionToast', JSON.stringify({ message: toastMsg, type: toastType }));
+    showToast(toastMsg, toastType);
+    setTimeout(() => {
+        window.location.reload();
+    }, delayMs);
+}
 
 // Helper for authenticated requests
 function authFetch(url, options = {}) {
@@ -262,6 +296,10 @@ function initSidebarNav() {
 
 function switchTab(tabName) {
     currentActiveTab = tabName;
+    sessionStorage.setItem('adminActiveTab', tabName);
+    if (window.location.hash !== '#' + tabName) {
+        history.replaceState(null, null, '#' + tabName);
+    }
 
     // Auto close sidebar on mobile screen when a tab is selected
     if (window.innerWidth <= 992 && typeof window.closeAdminSidebar === 'function') {
@@ -294,6 +332,19 @@ function switchTab(tabName) {
         'categories': 'Quản lý danh mục ngành nghề'
     };
     document.getElementById('page-title').textContent = titles[tabName] || 'Hệ thống Quản trị';
+
+    // Đồng bộ nút lọc subnav khi chuyển tab
+    if (tabName === 'ekyc') {
+        document.querySelectorAll('#tab-ekyc .subnav-btn').forEach(btn => {
+            if (btn.getAttribute('data-ekyc-status') === currentEkycFilter) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+    } else if (tabName === 'reports') {
+        document.querySelectorAll('#tab-reports .subnav-btn').forEach(btn => {
+            if (btn.getAttribute('data-report-status') === currentReportFilter) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+    }
 
     // Load data for the selected tab
     if (tabName === 'dashboard') loadDashboardStats();
@@ -450,10 +501,7 @@ async function toggleUserStatus(userId, userName, isUnban) {
     authFetch(`${API_ADMIN_BASE}/users/${userId}/toggle-status`, { method: 'PUT' })
         .then(res => {
             if (res.code === 200) {
-                showToast(`Đã ${actionText.toLowerCase()} tài khoản thành công!`, 'success');
-                const val = document.getElementById('user-search-input').value.trim();
-                loadUsers(val);
-                loadDashboardStats();
+                reloadPageAfterAction(`Đã ${actionText.toLowerCase()} tài khoản thành công!`, 'success');
             } else {
                 showToast(res.message || 'Lỗi khi cập nhật trạng thái', 'error');
             }
@@ -467,6 +515,7 @@ async function toggleUserStatus(userId, userName, isUnban) {
 // ================= 3. EKYC =================
 function filterEkyc(status) {
     currentEkycFilter = status;
+    sessionStorage.setItem('adminEkycFilter', status);
     document.querySelectorAll('#tab-ekyc .subnav-btn').forEach(btn => {
         if (btn.getAttribute('data-ekyc-status') === status) btn.classList.add('active');
         else btn.classList.remove('active');
@@ -617,9 +666,7 @@ async function approveEkyc(ekycId) {
     })
     .then(res => {
         if (res.code === 200) {
-            showToast('Đã duyệt eKYC thành công!', 'success');
-            loadEkycRecords(currentEkycFilter);
-            loadDashboardStats();
+            reloadPageAfterAction('Đã duyệt eKYC thành công!', 'success');
         } else {
             showToast(res.message || 'Lỗi khi duyệt eKYC', 'error');
         }
@@ -647,9 +694,7 @@ function submitRejectEkyc() {
     .then(res => {
         if (res.code === 200) {
             closeModal('modal-reject-ekyc');
-            showToast('Đã từ chối duyệt hồ sơ eKYC!', 'info');
-            loadEkycRecords(currentEkycFilter);
-            loadDashboardStats();
+            reloadPageAfterAction('Đã từ chối duyệt hồ sơ eKYC!', 'info');
         } else {
             showToast(res.message || 'Lỗi xử lý', 'error');
         }
@@ -663,6 +708,7 @@ function submitRejectEkyc() {
 // ================= 4. REPORTS =================
 function filterReports(status) {
     currentReportFilter = status;
+    sessionStorage.setItem('adminReportFilter', status);
     document.querySelectorAll('#tab-reports .subnav-btn').forEach(btn => {
         if (btn.getAttribute('data-report-status') === status) btn.classList.add('active');
         else btn.classList.remove('active');
@@ -863,9 +909,7 @@ function submitResolveReport() {
     .then(res => {
         if (res.code === 200) {
             closeModal('modal-resolve-report');
-            showToast('Đã xử lý khiếu nại thành công!', 'success');
-            loadReports(currentReportFilter);
-            loadDashboardStats();
+            reloadPageAfterAction('Đã thực thi phán quyết khiếu nại thành công!', 'success');
         } else {
             showToast(res.message || 'Lỗi khi xử lý khiếu nại', 'error');
         }
@@ -967,8 +1011,7 @@ function submitSaveCategory() {
     .then(res => {
         if (res.code === 200 || res.code === 201) {
             closeModal('modal-category');
-            showToast('Lưu danh mục thành công!', 'success');
-            loadCategories();
+            reloadPageAfterAction('Lưu danh mục thành công!', 'success');
         } else {
             errEl.textContent = res.message || 'Lỗi khi lưu danh mục';
             errEl.style.display = 'block';
@@ -992,8 +1035,7 @@ async function deleteCategory(id, name, jobCount) {
     authFetch(`${API_ADMIN_BASE}/categories/${id}`, { method: 'DELETE' })
         .then(res => {
             if (res.code === 200) {
-                showToast('Đã xóa danh mục thành công!', 'success');
-                loadCategories();
+                reloadPageAfterAction('Đã xóa danh mục thành công!', 'success');
             } else {
                 showToast(res.message || 'Không thể xóa danh mục', 'error');
             }
