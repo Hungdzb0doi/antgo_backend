@@ -85,6 +85,10 @@ public class ProfileServiceImpl implements ProfileService {
         UserEntity user = userRepository.findByPhone(curentPhone).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
         WorkerProfileEntity workerProfile = workerProfileRepository.findById(user.getId()).orElseThrow(() -> new AppException(ErrorCode.WORKER_PROFILE_NOT_FOUND));
 
+        if (availability && !"WORKER".equalsIgnoreCase(user.getCurrentMode())) {
+            throw new AppException(ErrorCode.EMPLOYER_CANNOT_ENABLE_LOCATION);
+        }
+
         if (availability && workerProfile.getWorkerScore() != null && workerProfile.getWorkerScore() < 50) {
             throw new AppException(ErrorCode.REPUTATION_SCORE_TOO_LOW);
         }

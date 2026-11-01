@@ -309,6 +309,19 @@ const API_BASE_URL = '/api/v1/profile';
                         const isTurnedOn = (currentUpper === 'WORKER') && ((p.isAvailable === true) || isLocallyTracking);
 
                         toggle.checked = isTurnedOn;
+                        toggle.disabled = (currentUpper !== 'WORKER');
+                        const switchBoxEl = document.getElementById('worker-availability-box') || document.querySelector('.switch-box');
+                        if (switchBoxEl) {
+                            if (currentUpper !== 'WORKER') {
+                                switchBoxEl.style.opacity = '0.5';
+                                switchBoxEl.style.cursor = 'not-allowed';
+                                switchBoxEl.setAttribute('title', 'Bạn đang ở vai trò Nhà tuyển dụng, không thể bật tìm việc.');
+                            } else {
+                                switchBoxEl.style.opacity = '1';
+                                switchBoxEl.style.cursor = 'default';
+                                switchBoxEl.removeAttribute('title');
+                            }
+                        }
                         if (availDesc) {
                             availDesc.textContent = isTurnedOn 
                                 ? 'Đang bật tìm việc · Hệ thống đang định vị GPS để NTD tìm thấy bạn' 
@@ -365,7 +378,17 @@ const API_BASE_URL = '/api/v1/profile';
                 roleBadge.style.background = 'var(--bg-accent-muted)';
                 roleBadge.style.color = 'var(--text-accent)';
             }
-            // Khôi phục GPS nếu đang bật tìm việc
+            // Khôi phục GPS và mở khóa công tắc tìm việc nếu là WORKER
+            const toggleW = document.getElementById('toggle-available');
+            if (toggleW) {
+                toggleW.disabled = false;
+            }
+            const switchBoxW = document.getElementById('worker-availability-box') || document.querySelector('.switch-box');
+            if (switchBoxW) {
+                switchBoxW.style.opacity = '1';
+                switchBoxW.style.cursor = 'default';
+                switchBoxW.removeAttribute('title');
+            }
             if (localStorage.getItem('workerLocationTracking') === 'true' && window.startGlobalWorkerLocationTracking) {
                 window.startGlobalWorkerLocationTracking();
             }
@@ -396,10 +419,17 @@ const API_BASE_URL = '/api/v1/profile';
             const toggle = document.getElementById('toggle-available');
             if (toggle) {
                 toggle.checked = false;
+                toggle.disabled = true;
+            }
+            const switchBox = document.getElementById('worker-availability-box') || document.querySelector('.switch-box');
+            if (switchBox) {
+                switchBox.style.opacity = '0.5';
+                switchBox.style.cursor = 'not-allowed';
+                switchBox.setAttribute('title', 'Bạn đang ở vai trò Nhà tuyển dụng, không thể bật tìm việc.');
             }
             const availDesc = document.getElementById('status-availability-desc');
             if (availDesc) {
-                availDesc.textContent = 'Đang tắt tìm việc · Bạn tạm thời ẩn khỏi bản đồ tìm ứng viên';
+                availDesc.textContent = 'Vai trò Nhà tuyển dụng · Không thể bật vị trí tìm việc';
             }
         }
 
@@ -454,6 +484,22 @@ const API_BASE_URL = '/api/v1/profile';
 
     // 3. BẬT/TẮT TÌM VIỆC (CHỈ TẮT KHI NGƯỜI DÙNG BẤM TẮT TRỰC TIẾP)
     function toggleAvailability(checkboxEl) {
+        const currentMode = (localStorage.getItem('currentMode') || 'WORKER').toUpperCase();
+        if (currentMode === 'EMPLOYER') {
+            checkboxEl.checked = false;
+            checkboxEl.disabled = true;
+            const availDesc = document.getElementById('status-availability-desc');
+            if (availDesc) {
+                availDesc.textContent = 'Vai trò Nhà tuyển dụng · Không thể bật vị trí tìm việc';
+            }
+            if (typeof showToast === 'function') {
+                showToast('Bạn đang ở vai trò Nhà tuyển dụng, không thể bật vị trí tìm việc!', 'warning');
+            } else {
+                alert('Bạn đang ở vai trò Nhà tuyển dụng, không thể bật vị trí tìm việc! Vui lòng chuyển sang vai trò Người tìm việc trước.');
+            }
+            return;
+        }
+
         const token = localStorage.getItem('accessToken');
         const isReady = checkboxEl.checked;
         const availDesc = document.getElementById('status-availability-desc');

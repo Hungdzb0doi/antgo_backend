@@ -37,6 +37,7 @@ public enum ErrorCode {
     REPUTATION_SCORE_TOO_LOW(2012, "Điểm uy tín của bạn quá thấp (dưới 50 điểm), tạm thời bị hạn chế thực hiện chức năng này", HttpStatus.FORBIDDEN),
     EKYC_NOT_FOUND(2013, "Không tìm thấy hồ sơ eKYC", HttpStatus.NOT_FOUND),
     CANNOT_BAN_ADMIN(2014, "Không thể thao tác khóa tài khoản Quản trị viên", HttpStatus.BAD_REQUEST),
+    EMPLOYER_CANNOT_ENABLE_LOCATION(2015, "Bạn đang ở vai trò Nhà tuyển dụng, không thể bật tìm việc hoặc định vị vị trí. Vui lòng chuyển sang vai trò Người tìm việc.", HttpStatus.BAD_REQUEST),
 
     // ===== JOB =====
     JOB_NOT_FOUND(3000, "Không tìm thấy công việc", HttpStatus.NOT_FOUND),
