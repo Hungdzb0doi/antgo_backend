@@ -946,16 +946,21 @@ body {
 
 .modal-dialog-img {
     max-width: 800px;
-    background: transparent;
-    box-shadow: none;
-    max-height: none;
+    width: 100%;
+    background: #09090B;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    max-height: 92vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .img-expanded {
     max-width: 100%;
-    max-height: 85vh;
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-lg);
+    max-height: 75vh;
+    border-radius: var(--radius-sm);
+    object-fit: contain;
     background: #000;
 }
 
@@ -1270,6 +1275,20 @@ body {
     .modal-container {
         max-width: 95%;
         padding: 16px;
+    }
+
+    .modal-overlay {
+        padding: 8px;
+    }
+
+    .modal-dialog-img {
+        max-width: 100%;
+        max-height: 94vh;
+        border-radius: 8px;
+    }
+
+    .modal-dialog-img .img-expanded {
+        max-height: calc(85vh - 70px);
     }
 }
 

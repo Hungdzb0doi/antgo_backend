@@ -61,6 +61,7 @@ public class JobServiceImpl implements JobService {
 
     private static final String GEO_KEY = "worker:locations";
     private static final String ACTIVE_KEY_PREFIX = "worker:active:";
+    private static final long TIME_TO_LIVE_MINUTES = 30;
 
     @Override
     public void createJob(RequestJobDTO requestJobDTO) {
@@ -185,57 +186,73 @@ public class JobServiceImpl implements JobService {
                     return;
                 }
 
-                Boolean isOnline = redisTemplate.hasKey(ACTIVE_KEY_PREFIX + workerIdStr);
-
-                if (Boolean.TRUE.equals(isOnline)) {
-                    ResponseWorkerDTO dto = new ResponseWorkerDTO();
-                    dto.setUserId(UUID.fromString(workerIdStr));
-                    dto.setDistance(result.getDistance().getValue());
-
-                    workerProfileRepository.findById(UUID.fromString(workerIdStr)).ifPresent(worker -> {
-                        // Chỉ hiển thị ứng viên có điểm uy tín >= 50 và đang bật trạng thái sẵn sàng
-                        if (worker.getWorkerScore() != null && worker.getWorkerScore() < 50) {
-                            return;
-                        }
-                        if (!Boolean.TRUE.equals(worker.getIsAvailable())) {
-                            return;
-                        }
-
-                        dto.setFullName(worker.getUserEntity().getFullName());
-                        dto.setAvatar(worker.getUserEntity().getAvatarUrl());
-                        dto.setLatitude(result.getContent().getPoint().getY());
-                        dto.setLongitude(result.getContent().getPoint().getX());
-                        dto.setEmail(worker.getUserEntity().getEmail());
-                        dto.setPhone(worker.getUserEntity().getPhone());
-                        dto.setIdentityVerified(worker.getUserEntity().getIdentityVerified());
-                        dto.setSkills(worker.getSkills());
-                        dto.setWorkerScore(worker.getWorkerScore());
-                        dto.setCurrentLocation(worker.getCurrentLocation());
-
-                        boolean hasApplied = applicationRepository.existsByworker_userIdAndJob_id(worker.getUserId(), jobId);
-                        dto.setHasApplied(hasApplied);
-
-                        // Lấy đánh giá sao trung bình & số lượt đánh giá
-                        UUID workerUserId = worker.getUserId();
-                        Double avgRating = reviewRepository.findAverageRatingByRevieweeId(workerUserId);
-                        long reviewCount = reviewRepository.countByRevieweeId(workerUserId);
-                        dto.setAverageRating(avgRating != null ? Math.round(avgRating * 10.0) / 10.0 : null);
-                        dto.setReviewCount(reviewCount);
-
-                        // Tính điểm ưu tiên theo Phương án 2 (Weighted Score):
-                        // Đánh giá thực tế (60%) + Điểm uy tín (40%)
-                        // Người mới chưa có đánh giá: điểm đánh giá cơ sở tính 4.5 sao (90/100)
-                        double effectiveRatingScore = (avgRating != null && reviewCount > 0) ? (avgRating * 20.0) : 90.0;
-                        double repScore = (worker.getWorkerScore() != null) ? worker.getWorkerScore().doubleValue() : 100.0;
-                        double priorityScore = (effectiveRatingScore * 0.6) + (repScore * 0.4);
-                        dto.setPriorityScore(Math.round(priorityScore * 10.0) / 10.0);
-
-                        nearbyWorkers.add(dto);
-                    });
-                } else {
+                UUID workerId;
+                try {
+                    workerId = UUID.fromString(workerIdStr);
+                } catch (Exception e) {
                     redisTemplate.opsForGeo().remove(GEO_KEY, workerIdStr);
-                    log.info("Đã dọn dẹp tọa độ rác : {}", workerIdStr);
+                    return;
                 }
+
+                workerProfileRepository.findById(workerId).ifPresentOrElse(worker -> {
+                    // Nếu tài khoản không còn ở vai trò WORKER hoặc đã tắt tìm việc: dọn dẹp khỏi Redis
+                    if (worker.getUserEntity() == null || !"WORKER".equalsIgnoreCase(worker.getUserEntity().getCurrentMode())
+                            || !Boolean.TRUE.equals(worker.getIsAvailable())) {
+                        redisTemplate.opsForGeo().remove(GEO_KEY, workerIdStr);
+                        redisTemplate.delete(ACTIVE_KEY_PREFIX + workerIdStr);
+                        return;
+                    }
+
+                    // Chỉ hiển thị ứng viên có điểm uy tín >= 50
+                    if (worker.getWorkerScore() != null && worker.getWorkerScore() < 50) {
+                        return;
+                    }
+
+                    // Tự động gia hạn / khôi phục key online nếu ứng viên đang thực sự bật tìm việc
+                    redisTemplate.opsForValue().set(
+                            ACTIVE_KEY_PREFIX + workerIdStr,
+                            "online",
+                            Duration.ofMinutes(TIME_TO_LIVE_MINUTES)
+                    );
+
+                    ResponseWorkerDTO dto = new ResponseWorkerDTO();
+                    dto.setUserId(workerId);
+                    dto.setDistance(result.getDistance().getValue());
+                    dto.setFullName(worker.getUserEntity().getFullName());
+                    dto.setAvatar(worker.getUserEntity().getAvatarUrl());
+                    dto.setLatitude(result.getContent().getPoint().getY());
+                    dto.setLongitude(result.getContent().getPoint().getX());
+                    dto.setEmail(worker.getUserEntity().getEmail());
+                    dto.setPhone(worker.getUserEntity().getPhone());
+                    dto.setIdentityVerified(worker.getUserEntity().getIdentityVerified());
+                    dto.setSkills(worker.getSkills());
+                    dto.setWorkerScore(worker.getWorkerScore());
+                    dto.setCurrentLocation(worker.getCurrentLocation());
+
+                    boolean hasApplied = applicationRepository.existsByworker_userIdAndJob_id(worker.getUserId(), jobId);
+                    dto.setHasApplied(hasApplied);
+
+                    // Lấy đánh giá sao trung bình & số lượt đánh giá
+                    UUID workerUserId = worker.getUserId();
+                    Double avgRating = reviewRepository.findAverageRatingByRevieweeId(workerUserId);
+                    long reviewCount = reviewRepository.countByRevieweeId(workerUserId);
+                    dto.setAverageRating(avgRating != null ? Math.round(avgRating * 10.0) / 10.0 : null);
+                    dto.setReviewCount(reviewCount);
+
+                    // Tính điểm ưu tiên theo Phương án 2 (Weighted Score):
+                    // Đánh giá thực tế (60%) + Điểm uy tín (40%)
+                    // Người mới chưa có đánh giá: điểm đánh giá cơ sở tính 4.5 sao (90/100)
+                    double effectiveRatingScore = (avgRating != null && reviewCount > 0) ? (avgRating * 20.0) : 90.0;
+                    double repScore = (worker.getWorkerScore() != null) ? worker.getWorkerScore().doubleValue() : 100.0;
+                    double priorityScore = (effectiveRatingScore * 0.6) + (repScore * 0.4);
+                    dto.setPriorityScore(Math.round(priorityScore * 10.0) / 10.0);
+
+                    nearbyWorkers.add(dto);
+                }, () -> {
+                    // Không tìm thấy worker trong DB -> dọn dẹp khỏi Redis
+                    redisTemplate.opsForGeo().remove(GEO_KEY, workerIdStr);
+                    redisTemplate.delete(ACTIVE_KEY_PREFIX + workerIdStr);
+                });
             });
         }
 

@@ -22,8 +22,12 @@ public class ProfileAPI {
         return ResponseEntity.ok(ApiResponse.success(null));
     }
     @PatchMapping("/availability")
-    public ResponseEntity<ApiResponse<Object>> changeAvailability(@RequestParam boolean availability){
-        profileService.isAvailability(availability, null, null);
+    public ResponseEntity<ApiResponse<Object>> changeAvailability(
+            @RequestParam boolean availability,
+            @RequestParam(required = false) Double longitude,
+            @RequestParam(required = false) Double latitude
+    ) {
+        profileService.isAvailability(availability, longitude, latitude);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
     @PutMapping

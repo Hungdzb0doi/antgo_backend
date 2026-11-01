@@ -100,9 +100,13 @@
         }
     };
 
-    window.sendWorkerLocationPayload = function(lat, lng) {
+    window.sendWorkerLocationPayload = function(lat, lng, forceImmediate = false) {
         if (!lat || !lng) return;
         window.latestGpsCoords = { lat, lng };
+        try {
+            localStorage.setItem('antgo_last_lat', lat);
+            localStorage.setItem('antgo_last_lng', lng);
+        } catch (e) {}
 
         // Phát sự kiện toàn cục để trang profile (nếu đang mở) cập nhật ngay tọa độ lên giao diện
         try {
@@ -115,7 +119,7 @@
         }
 
         const now = Date.now();
-        if (lastSentGpsCoords.lat && Math.abs(lastSentGpsCoords.lat - lat) < 0.00005 &&
+        if (!forceImmediate && lastSentGpsCoords.lat && Math.abs(lastSentGpsCoords.lat - lat) < 0.00005 &&
             Math.abs(lastSentGpsCoords.lng - lng) < 0.00005 && (now - lastSentGpsCoords.time < 10000)) {
             return;
         }
@@ -124,7 +128,7 @@
         try {
             client.send("/app/locationworker", {}, payload);
             lastSentGpsCoords = { lat, lng, time: now };
-            console.log(`[AntGo GPS Xuyên Trang] Đã gửi vị trí: [Kinh độ: ${lng.toFixed(4)}, Vĩ độ: ${lat.toFixed(4)}]`);
+            console.log(`[AntGo GPS Xuyên Trang] Đã gửi vị trí: [Kinh độ: ${Number(lng).toFixed(4)}, Vĩ độ: ${Number(lat).toFixed(4)}]`);
             window.updateGpsDotStatus(true);
         } catch (e) {
             console.warn('[AntGo GPS] Lỗi gửi WebSocket:', e);
@@ -138,6 +142,7 @@
         const currentMode = (localStorage.getItem('currentMode') || 'WORKER').toUpperCase();
         if (currentMode === 'EMPLOYER') {
             window.updateGpsDotStatus(false);
+            localStorage.setItem('workerLocationTracking', 'false');
             return;
         }
         if (!navigator.geolocation) return;
@@ -145,13 +150,23 @@
         window.updateGpsDotStatus(true);
         localStorage.setItem('workerLocationTracking', 'true');
 
-        // Định vị nhanh ngay lập tức
+        // Reset bộ đếm throttle để lần đầu gửi luôn đi ngay lập tức
+        lastSentGpsCoords = { lat: null, lng: null, time: 0 };
+
+        // Nếu đã có sẵn tọa độ trước đó, bắn ngay qua WebSocket không cần chờ đợi phần cứng GPS
+        const cachedLat = (window.latestGpsCoords && window.latestGpsCoords.lat) || parseFloat(localStorage.getItem('antgo_last_lat') || '0');
+        const cachedLng = (window.latestGpsCoords && window.latestGpsCoords.lng) || parseFloat(localStorage.getItem('antgo_last_lng') || '0');
+        if (cachedLat && cachedLng) {
+            window.sendWorkerLocationPayload(cachedLat, cachedLng, true);
+        }
+
+        // Định vị nhanh với maximumAge 60s để trình duyệt trả về tọa độ cache ngay lập tức (0ms)
         navigator.geolocation.getCurrentPosition(
             (pos) => {
-                window.sendWorkerLocationPayload(pos.coords.latitude, pos.coords.longitude);
+                window.sendWorkerLocationPayload(pos.coords.latitude, pos.coords.longitude, true);
             },
             (err) => {},
-            { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 }
+            { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 }
         );
 
         if (globalGpsWatchId === null) {
@@ -707,7 +722,8 @@
                     if (window.latestGpsCoords && window.latestGpsCoords.lat && window.latestGpsCoords.lng) {
                         window.sendWorkerLocationPayload(window.latestGpsCoords.lat, window.latestGpsCoords.lng);
                     }
-                } else if (isTracking && currentMode === 'EMPLOYER') {
+                } else if (currentMode === 'EMPLOYER') {
+                    localStorage.setItem('workerLocationTracking', 'false');
                     window.updateGpsDotStatus(false);
                 }
 

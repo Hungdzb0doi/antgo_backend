@@ -26,6 +26,13 @@ const token = localStorage.getItem('accessToken');
         }
         if (currentMode !== 'EMPLOYER') {
             localStorage.setItem('currentMode', 'EMPLOYER');
+            localStorage.setItem('workerLocationTracking', 'false');
+            if (window.stopGlobalWorkerLocationTracking) {
+                window.stopGlobalWorkerLocationTracking();
+            }
+            if (window.updateGpsDotStatus) {
+                window.updateGpsDotStatus(false);
+            }
             fetch('/api/v1/profile/mode?mode=EMPLOYER', {
                 method: 'PATCH',
                 headers: { 'Authorization': 'Bearer ' + token }

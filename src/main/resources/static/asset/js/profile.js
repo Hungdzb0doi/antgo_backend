@@ -303,9 +303,10 @@ const API_BASE_URL = '/api/v1/profile';
                     const toggle = document.getElementById('toggle-available');
                     const availDesc = document.getElementById('status-availability-desc');
                     if (toggle) {
-                        // Trạng thái bật được ưu tiên duy trì: nếu DB là true hoặc localStorage đang là 'true'
+                        const currentUpper = (p.currentMode || 'WORKER').toUpperCase();
+                        // Trạng thái bật chỉ áp dụng cho vai trò WORKER: nếu DB là true hoặc localStorage đang là 'true'
                         const isLocallyTracking = localStorage.getItem('workerLocationTracking') === 'true';
-                        const isTurnedOn = (p.isAvailable === true) || isLocallyTracking;
+                        const isTurnedOn = (currentUpper === 'WORKER') && ((p.isAvailable === true) || isLocallyTracking);
 
                         toggle.checked = isTurnedOn;
                         if (availDesc) {
@@ -315,10 +316,9 @@ const API_BASE_URL = '/api/v1/profile';
                         }
 
                         // Đồng bộ trạng thái vào localStorage & kích hoạt GPS toàn cục
-                        const currentUpper = (p.currentMode || 'WORKER').toUpperCase();
-                        if (isTurnedOn) {
+                        if (isTurnedOn && currentUpper === 'WORKER') {
                             localStorage.setItem('workerLocationTracking', 'true');
-                            if (currentUpper === 'WORKER' && window.startGlobalWorkerLocationTracking) {
+                            if (window.startGlobalWorkerLocationTracking) {
                                 window.startGlobalWorkerLocationTracking();
                             }
                         } else {
@@ -385,9 +385,21 @@ const API_BASE_URL = '/api/v1/profile';
                 roleBadge.style.background = '#fef3c7';
                 roleBadge.style.color = '#92400e';
             }
-            // Tạm dừng hiển thị chấm GPS khi ở chế độ Nhà tuyển dụng
+            // Yêu cầu 3: Khi đổi vai trò sang Nhà tuyển dụng thì vị trí / tìm việc của ứng viên bắt buộc phải tắt
+            localStorage.setItem('workerLocationTracking', 'false');
+            if (window.stopGlobalWorkerLocationTracking) {
+                window.stopGlobalWorkerLocationTracking();
+            }
             if (window.updateGpsDotStatus) {
                 window.updateGpsDotStatus(false);
+            }
+            const toggle = document.getElementById('toggle-available');
+            if (toggle) {
+                toggle.checked = false;
+            }
+            const availDesc = document.getElementById('status-availability-desc');
+            if (availDesc) {
+                availDesc.textContent = 'Đang tắt tìm việc · Bạn tạm thời ẩn khỏi bản đồ tìm ứng viên';
             }
         }
 
@@ -452,19 +464,35 @@ const API_BASE_URL = '/api/v1/profile';
                 : 'Đang tắt tìm việc · Bạn tạm thời ẩn khỏi bản đồ tìm ứng viên';
         }
 
+        // Lấy ngay tọa độ mới nhất hoặc đã lưu gần nhất để gửi ngay lên server
+        let lat = (window.latestGpsCoords && window.latestGpsCoords.lat) || parseFloat(localStorage.getItem('antgo_last_lat') || '0') || null;
+        let lng = (window.latestGpsCoords && window.latestGpsCoords.lng) || parseFloat(localStorage.getItem('antgo_last_lng') || '0') || null;
+
         if (isReady) {
             localStorage.setItem('workerLocationTracking', 'true');
             if (window.startGlobalWorkerLocationTracking) {
                 window.startGlobalWorkerLocationTracking();
+            }
+            // Phát ngay vị trí qua WebSocket mà không bị bóp nghẽn thời gian
+            if (lat && lng && window.sendWorkerLocationPayload) {
+                window.sendWorkerLocationPayload(lat, lng, true);
             }
         } else {
             localStorage.setItem('workerLocationTracking', 'false');
             if (window.stopGlobalWorkerLocationTracking) {
                 window.stopGlobalWorkerLocationTracking();
             }
+            if (window.updateGpsDotStatus) {
+                window.updateGpsDotStatus(false);
+            }
         }
 
-        fetch(`${API_BASE_URL}/availability?availability=${isReady}`, {
+        let url = `${API_BASE_URL}/availability?availability=${isReady}`;
+        if (isReady && lat && lng) {
+            url += `&latitude=${lat}&longitude=${lng}`;
+        }
+
+        fetch(url, {
             method: 'PATCH',
             headers: { 'Authorization': 'Bearer ' + token }
         })

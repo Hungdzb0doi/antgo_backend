@@ -20,6 +20,7 @@ public class ResponseAdminReportDTO {
     private UUID reportedId;
     private String reportedName;
     private String reportedPhone;
+    private String reportedRole; // EMPLOYER hoặc WORKER
     private UUID applicationId;
     private String jobTitle;
     private String reason;

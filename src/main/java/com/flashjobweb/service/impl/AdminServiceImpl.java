@@ -210,8 +210,13 @@ public class AdminServiceImpl implements AdminService {
                 paymentAmount = hourlyRate.multiply(BigDecimal.valueOf(hours)).setScale(0, java.math.RoundingMode.HALF_UP);
             }
 
+            boolean isReportedEmployer = (job != null && job.getEmployer() != null && r.getReported() != null && r.getReported().getId().equals(job.getEmployer().getUserId()));
+            boolean isReportedWorker = (app != null && app.getWorker() != null && r.getReported() != null && r.getReported().getId().equals(app.getWorker().getUserId()));
+            String reportedRole = isReportedEmployer ? "EMPLOYER" : (isReportedWorker ? "WORKER" : (r.getReported() != null ? r.getReported().getCurrentMode() : "USER"));
+
             return ResponseAdminReportDTO.builder()
                     .id(r.getId())
+                    .reportedRole(reportedRole)
                     .reporterId(r.getReporter() != null ? r.getReporter().getId() : null)
                     .reporterName(r.getReporter() != null ? r.getReporter().getFullName() : "N/A")
                     .reporterPhone(r.getReporter() != null ? r.getReporter().getPhone() : "N/A")
@@ -264,21 +269,46 @@ public class AdminServiceImpl implements AdminService {
         if ("RESOLVED".equalsIgnoreCase(finalStatus)) {
             int penalty = (penaltyPoints != null && penaltyPoints > 0) ? penaltyPoints : 0;
             if (penalty > 0 && reported != null) {
-                workerProfileRepository.findById(reported.getId()).ifPresent(wp -> {
-                    int current = (wp.getWorkerScore() != null) ? wp.getWorkerScore() : 100;
-                    wp.setWorkerScore(Math.max(0, current - penalty));
-                    workerProfileRepository.save(wp);
-                });
-                employerProfileRepository.findById(reported.getId()).ifPresent(ep -> {
-                    int current = (ep.getEmployerScore() != null) ? ep.getEmployerScore() : 100;
-                    ep.setEmployerScore(Math.max(0, current - penalty));
-                    employerProfileRepository.save(ep);
-                });
+                boolean isReportedEmployer = (job != null && job.getEmployer() != null && reported.getId().equals(job.getEmployer().getUserId()));
+                boolean isReportedWorker = (app != null && app.getWorker() != null && reported.getId().equals(app.getWorker().getUserId()));
+
+                String roleText = "tài khoản";
+                if (isReportedEmployer) {
+                    roleText = "Nhà tuyển dụng";
+                    employerProfileRepository.findById(reported.getId()).ifPresent(ep -> {
+                        int current = (ep.getEmployerScore() != null) ? ep.getEmployerScore() : 100;
+                        ep.setEmployerScore(Math.max(0, current - penalty));
+                        employerProfileRepository.save(ep);
+                    });
+                } else if (isReportedWorker) {
+                    roleText = "Ứng viên";
+                    workerProfileRepository.findById(reported.getId()).ifPresent(wp -> {
+                        int current = (wp.getWorkerScore() != null) ? wp.getWorkerScore() : 100;
+                        wp.setWorkerScore(Math.max(0, current - penalty));
+                        workerProfileRepository.save(wp);
+                    });
+                } else {
+                    if ("EMPLOYER".equalsIgnoreCase(reported.getCurrentMode())) {
+                        roleText = "Nhà tuyển dụng";
+                        employerProfileRepository.findById(reported.getId()).ifPresent(ep -> {
+                            int current = (ep.getEmployerScore() != null) ? ep.getEmployerScore() : 100;
+                            ep.setEmployerScore(Math.max(0, current - penalty));
+                            employerProfileRepository.save(ep);
+                        });
+                    } else {
+                        roleText = "Ứng viên";
+                        workerProfileRepository.findById(reported.getId()).ifPresent(wp -> {
+                            int current = (wp.getWorkerScore() != null) ? wp.getWorkerScore() : 100;
+                            wp.setWorkerScore(Math.max(0, current - penalty));
+                            workerProfileRepository.save(wp);
+                        });
+                    }
+                }
 
                 String reason = StringUtils.hasText(note) ? note : (StringUtils.hasText(report.getReason()) ? report.getReason() : "Vi phạm quy định nền tảng");
                 notificationService.sendNotification(reported,
                         "Cảnh báo vi phạm & Khấu trừ điểm uy tín",
-                        "Bạn đã bị trừ " + penalty + " điểm uy tín liên quan đến công việc '" + jobTitle + "'" + shiftInfo + ". Lý do: " + reason,
+                        "Bạn đã bị trừ " + penalty + " điểm uy tín (" + roleText + ") liên quan đến công việc '" + jobTitle + "'" + shiftInfo + ". Lý do: " + reason,
                         "PENALTY",
                         jobId);
             }

@@ -687,7 +687,7 @@ function zoomImage(url, title = 'Chi tiết hình ảnh', directUrl = '') {
 
     if (imgEl) imgEl.src = url;
     if (titleEl) {
-        titleEl.innerHTML = `<i class="ti ti-photo"></i> ${escapeHtml(title)}`;
+        titleEl.innerHTML = `<i class="ti ti-photo" style="flex-shrink: 0;"></i> <span style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word;">${escapeHtml(title)}</span>`;
     }
     if (driveLink) {
         if (directUrl) {
@@ -888,10 +888,22 @@ function openResolveReportModal(reportId) {
         ? `${formatDate(report.startTime)} &rarr; ${formatDate(report.endTime)}`
         : (report.startTime ? formatDate(report.startTime) : 'Chưa xác định');
 
+    const roleBadgeHtml = (report.reportedRole === 'EMPLOYER')
+        ? `<span class="badge badge-warning" style="font-size: 11px; margin-left: 6px;"><i class="ti ti-briefcase"></i> Vai trò: Nhà tuyển dụng</span>`
+        : (report.reportedRole === 'WORKER'
+            ? `<span class="badge badge-info" style="font-size: 11px; margin-left: 6px;"><i class="ti ti-user"></i> Vai trò: Ứng viên</span>`
+            : '');
+
+    const roleName = (report.reportedRole === 'EMPLOYER') ? 'Nhà tuyển dụng' : (report.reportedRole === 'WORKER' ? 'Ứng viên' : 'tài khoản');
+    const penaltyLabelEl = document.querySelector('label[for="penalty-points"]');
+    if (penaltyLabelEl) {
+        penaltyLabelEl.innerHTML = `Số điểm uy tín trừ <strong>(Vai trò ${roleName})</strong> (0 - 50 điểm):`;
+    }
+
     document.getElementById('resolve-report-id').value = reportId;
     document.getElementById('resolve-report-summary').innerHTML = `
         <div style="margin-bottom: 4px;"><strong>Người báo cáo:</strong> ${escapeHtml(report.reporterName)} (${escapeHtml(report.reporterPhone)})</div>
-        <div style="margin-bottom: 4px;"><strong>Người bị báo cáo:</strong> <span class="text-danger font-bold">${escapeHtml(report.reportedName)} (${escapeHtml(report.reportedPhone)})</span></div>
+        <div style="margin-bottom: 4px;"><strong>Người bị báo cáo:</strong> <span class="text-danger font-bold">${escapeHtml(report.reportedName)} (${escapeHtml(report.reportedPhone)})</span> ${roleBadgeHtml}</div>
         <div style="margin-bottom: 6px;"><strong>Công việc:</strong> ${escapeHtml(report.jobTitle)}</div>
         <div style="background: #F1F5F9; border: 1px solid #CBD5E1; padding: 8px 12px; border-radius: 6px; font-size: 12.5px; margin-bottom: 8px;">
             <div><i class="ti ti-calendar-time"></i> <strong>Lịch ca làm:</strong> ${timeRangeStr}</div>

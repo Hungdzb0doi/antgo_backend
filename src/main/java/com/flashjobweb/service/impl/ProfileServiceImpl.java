@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -57,11 +58,21 @@ public class ProfileServiceImpl implements ProfileService {
     }
     @Override
     public void changeMode(String mode) {
-        String curentPhone= SecurityContextHolder.getContext().getAuthentication().getName();
-        UserEntity user=userRepository.findByPhone(curentPhone).orElseThrow(()->new AppException(ErrorCode.USER_NOT_FOUND));
+        String curentPhone = SecurityContextHolder.getContext().getAuthentication().getName();
+        UserEntity user = userRepository.findByPhone(curentPhone).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
         String upperMode = (mode != null && "EMPLOYER".equalsIgnoreCase(mode.trim())) ? "EMPLOYER" : "WORKER";
         user.setCurrentMode(upperMode);
         userRepository.save(user);
+
+        // Yêu cầu 3: Khi đổi vai trò sang Nhà tuyển dụng thì vị trí / tìm việc của ứng viên bắt buộc phải tắt
+        if ("EMPLOYER".equalsIgnoreCase(upperMode)) {
+            workerProfileRepository.findById(user.getId()).ifPresent(wp -> {
+                wp.setIsAvailable(false);
+                workerProfileRepository.save(wp);
+            });
+            redisTemplate.opsForGeo().remove(GEO_KEY, user.getId().toString());
+            redisTemplate.delete(ACTIVE_KEY_PREFIX + user.getId().toString());
+        }
     }
     private final StringRedisTemplate redisTemplate;
     private static final String GEO_KEY = "worker:locations";
@@ -69,24 +80,37 @@ public class ProfileServiceImpl implements ProfileService {
     private static final String ACTIVE_KEY_PREFIX = "worker:active:";
     private static final long TIME_TO_LIVE_MINUTES = 30;
     @Override
-    public void isAvailability(boolean availability,Double longitude,Double latitude) {
-        String curentPhone= SecurityContextHolder.getContext().getAuthentication().getName();
-        UserEntity user=userRepository.findByPhone(curentPhone).orElseThrow(()->new AppException(ErrorCode.USER_NOT_FOUND));
-        WorkerProfileEntity workerProfile=workerProfileRepository.findById(user.getId()).orElseThrow(()->new AppException(ErrorCode.WORKER_PROFILE_NOT_FOUND));
+    public void isAvailability(boolean availability, Double longitude, Double latitude) {
+        String curentPhone = SecurityContextHolder.getContext().getAuthentication().getName();
+        UserEntity user = userRepository.findByPhone(curentPhone).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        WorkerProfileEntity workerProfile = workerProfileRepository.findById(user.getId()).orElseThrow(() -> new AppException(ErrorCode.WORKER_PROFILE_NOT_FOUND));
 
         if (availability && workerProfile.getWorkerScore() != null && workerProfile.getWorkerScore() < 50) {
             throw new AppException(ErrorCode.REPUTATION_SCORE_TOO_LOW);
         }
 
         workerProfile.setIsAvailable(availability);
+
+        Double finalLng = longitude;
+        Double finalLat = latitude;
+
+        // Nếu có tọa độ truyền vào hợp lệ, lưu vào DB
+        if (finalLng != null && finalLat != null && finalLng != 0.0 && finalLat != 0.0) {
+            GeometryFactory gf = new GeometryFactory(new PrecisionModel(), 4326);
+            workerProfile.setCurrentLocation(gf.createPoint(new Coordinate(finalLng, finalLat)));
+            workerProfile.setLocationUpdatedAt(LocalDateTime.now());
+        } else if (availability && (finalLng == null || finalLat == null) && workerProfile.getCurrentLocation() != null) {
+            // NẾU BẬT TÌM VIỆC MÀ CHƯA KỊP TRUYỀN TỌA ĐỘ MỚI: TẬN DỤNG NGAY TỌA ĐỘ ĐÃ LƯU TRONG DB ĐỂ NẠP REDIS NGAY
+            finalLng = workerProfile.getCurrentLocation().getX();
+            finalLat = workerProfile.getCurrentLocation().getY();
+        }
+
         workerProfileRepository.save(workerProfile);
+
         if (availability) {
-            if (longitude != null && latitude != null && longitude != 0.0 && latitude != 0.0) {
-
-                Point location = new Point(longitude, latitude);
+            if (finalLng != null && finalLat != null && finalLng != 0.0 && finalLat != 0.0) {
+                Point location = new Point(finalLng, finalLat);
                 redisTemplate.opsForGeo().add(GEO_KEY, location, user.getId().toString());
-
-
                 redisTemplate.opsForValue().set(
                         ACTIVE_KEY_PREFIX + user.getId(),
                         "online",
