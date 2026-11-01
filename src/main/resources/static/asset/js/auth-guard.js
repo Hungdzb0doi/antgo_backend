@@ -25,6 +25,61 @@
     }
 
     const isPublic = publicPaths.includes(currentPath);
+
+    // ==============================================================
+    // ĐƠN PHIÊN (SINGLE SESSION): XỬ LÝ KHI BỊ ĐĂNG NHẬP Ở NƠI KHÁC
+    // ==============================================================
+    let isSessionKickedAlerted = false;
+    window.handleSessionKicked = function(message) {
+        if (isSessionKickedAlerted) return;
+        isSessionKickedAlerted = true;
+
+        try {
+            if (window.globalStompClient) {
+                window.globalStompClient.disconnect();
+            }
+            if (typeof window.stopGlobalWorkerLocationTracking === 'function') {
+                window.stopGlobalWorkerLocationTracking();
+            }
+        } catch (e) {}
+
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('currentMode');
+        localStorage.removeItem('isAdmin');
+        localStorage.removeItem('workerLocationTracking');
+        localStorage.removeItem('userAvatar');
+        localStorage.removeItem('userFullName');
+
+        alert(message || 'Tài khoản của bạn vừa được đăng nhập trên một thiết bị khác. Phiên làm việc này đã kết thúc.');
+        window.location.replace('/interface/authentication');
+    };
+
+    // Bắt toàn bộ phản hồi HTTP 401 khi phiên làm việc bị đá bởi thiết bị khác
+    if (typeof window.fetch === 'function') {
+        const originalFetch = window.fetch;
+        window.fetch = async function(...args) {
+            const response = await originalFetch.apply(this, args);
+            if (response && response.status === 401) {
+                try {
+                    const clone = response.clone();
+                    const body = await clone.json();
+                    if (body && (body.data === 'SESSION_SUPERSEDED' || (body.message && body.message.includes('thiết bị khác')))) {
+                        window.handleSessionKicked(body.message);
+                    }
+                } catch (e) {}
+            }
+            return response;
+        };
+    }
+
+    // Đồng bộ nếu một tab khác trong cùng trình duyệt bị đá hoặc đăng xuất
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'accessToken' && !e.newValue && !isPublic) {
+            window.location.replace('/interface/authentication');
+        }
+    });
+
     if (isPublic) return;
 
     const token = localStorage.getItem('accessToken');

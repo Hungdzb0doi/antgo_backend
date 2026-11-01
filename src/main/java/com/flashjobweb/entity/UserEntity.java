@@ -53,6 +53,9 @@ public class UserEntity {
     @Column(name = "OtpTime")
     private LocalDateTime otpTime;
 
+    @Column(name = "active_session_id", length = 100)
+    private String activeSessionId;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<NotificationEntity> notificationEntities;
 

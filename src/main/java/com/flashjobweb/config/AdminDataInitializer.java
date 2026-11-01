@@ -23,12 +23,23 @@ public class AdminDataInitializer implements CommandLineRunner {
     private final EmployerProfileRepository employerProfileRepository;
     private final com.flashjobweb.repository.JobCategoryRepository jobCategoryRepository;
     private final PasswordEncoder passwordEncoder;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @Override
     @Transactional
     public void run(String... args) {
+        initDatabaseSchema();
         initCategories();
         initAdminAccount();
+    }
+
+    private void initDatabaseSchema() {
+        try {
+            jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS active_session_id VARCHAR(100);");
+            log.info("[AntGo] Database schema verified: active_session_id column exists.");
+        } catch (Exception ex) {
+            log.info("[AntGo] Auto-migration check active_session_id note: {}", ex.getMessage());
+        }
     }
 
     private void initCategories() {

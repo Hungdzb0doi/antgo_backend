@@ -20,21 +20,34 @@ import java.io.IOException;
 public class AuthJwtFilter extends OncePerRequestFilter {
     private final CustomUserDetailsService customUserDetailsService;
     private final JwtService jwtService;
+
     @Override
     public void doFilterInternal(@NonNull HttpServletRequest httpServletRequest,
                                  @NonNull HttpServletResponse httpServletResponse,
                                  @NonNull FilterChain filterChain) throws ServletException, IOException {
-        String userName;
-        String jwtToken;
+        String path = httpServletRequest.getRequestURI();
+        if (path != null && (path.startsWith("/api/v1/auth/") || path.startsWith("/interface/") || path.startsWith("/ws/"))) {
+            filterChain.doFilter(httpServletRequest, httpServletResponse);
+            return;
+        }
+
         String authHeader = httpServletRequest.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(httpServletRequest, httpServletResponse);
-            return;}
+            return;
+        }
+
         try {
-            jwtToken = authHeader.substring(7);
-            userName = jwtService.extractUsername(jwtToken);
+            String jwtToken = authHeader.substring(7);
+            String userName = jwtService.extractUsername(jwtToken);
             if (userName != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = this.customUserDetailsService.loadUserByUsername(userName);
+                if (jwtService.isSessionSuperseded(jwtToken, userDetails)) {
+                    httpServletResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    httpServletResponse.setContentType("application/json;charset=UTF-8");
+                    httpServletResponse.getWriter().write("{\"code\":401,\"message\":\"Tài khoản của bạn đã được đăng nhập trên một thiết bị khác. Vui lòng đăng nhập lại.\",\"data\":\"SESSION_SUPERSEDED\"}");
+                    return;
+                }
                 if (jwtService.validateToken(jwtToken, userDetails)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails, null, userDetails.getAuthorities());

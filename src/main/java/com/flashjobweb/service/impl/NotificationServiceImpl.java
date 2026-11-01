@@ -84,6 +84,25 @@ public class NotificationServiceImpl implements NotificationService {
         sendFirebasePushNotification(user, notif.getTitle(), content, notif.getType(), jobId, notif.getId());
     }
 
+    @Override
+    public void sendSessionKickedNotification(UUID userId) {
+        if (userId == null) return;
+        ResponseNotificationDTO notifSocket = ResponseNotificationDTO.builder()
+                .userId(userId)
+                .title("Đăng nhập ở nơi khác")
+                .content("Tài khoản của bạn vừa được đăng nhập trên một thiết bị khác. Phiên làm việc này đã kết thúc.")
+                .type("SESSION_KICKED")
+                .isRead(false)
+                .createdAt(LocalDateTime.now())
+                .build();
+        try {
+            messagingTemplate.convertAndSend("/topic/notifications/" + userId.toString(), notifSocket);
+            log.info("[Notification] Đã gửi WebSocket SESSION_KICKED tới user: {}", userId);
+        } catch (Exception e) {
+            log.warn("Không thể gửi session kicked socket cho user {}: {}", userId, e.getMessage());
+        }
+    }
+
     private void sendFirebasePushNotification(UserEntity user, String title, String content, String type, UUID jobId, UUID notifId) {
         if (FirebaseApp.getApps().isEmpty()) {
             return;

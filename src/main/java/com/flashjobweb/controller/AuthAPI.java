@@ -33,11 +33,18 @@ public class AuthAPI {
         }
     }
 
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Object>> logout() {
+        authService.logout();
+        return ResponseEntity.ok(ApiResponse.success("Đăng xuất thành công"));
+    }
+
     @PostMapping("/otp")
     public ResponseEntity<ApiResponse<Object>> forgotPassword(@RequestParam String email) {
         authService.generateAndSendOtp(email);
         return ResponseEntity.ok(ApiResponse.created());
     }
+
     @PostMapping("/ckotp")
     public ResponseEntity<ApiResponse<Object>> checkOtp(@RequestBody RequestResetPasswordDTO requestResetPasswordDTO) {
         authService.checkOtp(requestResetPasswordDTO);

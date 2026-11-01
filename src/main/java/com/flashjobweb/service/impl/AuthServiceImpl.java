@@ -13,22 +13,29 @@ import com.flashjobweb.repository.EmployerProfileRepository;
 import com.flashjobweb.repository.UserRepository;
 import com.flashjobweb.repository.WorkerProfileRepository;
 import com.flashjobweb.service.AuthService;
+import com.flashjobweb.service.NotificationService;
+import com.flashjobweb.service.impl.security.CustomUserDetails;
 import com.flashjobweb.service.impl.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Random;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -39,12 +46,20 @@ public class AuthServiceImpl implements AuthService {
     private final ModelMapper modelMapper;
     private final EmployerProfileRepository employerProfileRepository;
     private final WorkerProfileRepository workerProfileRepository;
+    private final JwtService jwtService;
+    private final AuthenticationManager authenticationManager;
+    private final JavaMailSender javaMailSender;
+    private final StringRedisTemplate redisTemplate;
+
+    @Lazy
+    private final NotificationService notificationService;
 
     @Value("${brevo.api.key:}")
     private String brevoApiKey;
 
     @Value("${brevo.sender.email:satan22072005@gmail.com}")
     private String brevoSenderEmail;
+
     @Override
     public void register(RequestRegisterDTO requestRegisterDTO) {
         if (userRepository.existsByPhone(requestRegisterDTO.getPhone())){
@@ -61,20 +76,56 @@ public class AuthServiceImpl implements AuthService {
         user.setPasswordHash(passwordEncoder.encode(requestRegisterDTO.getPasswordHash()));
         userRepository.save(user);
     }
-    private final JwtService jwtService;
-    private final AuthenticationManager authenticationManager;
+
     @Override
     public ResponseLoginDTO login(RequestLoginDTO requestLoginDTO) {
-        Authentication authentication=authenticationManager.authenticate(
+        Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
-                        requestLoginDTO.getPhone(),requestLoginDTO.getPassword()));
-        UserDetails userDetails=(UserDetails) authentication.getPrincipal();
-        String token=jwtService.generateToken(userDetails);
+                        requestLoginDTO.getPhone(), requestLoginDTO.getPassword()));
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        UserEntity user = ((CustomUserDetails) userDetails).getUser();
+
+        // 1. Nếu tài khoản đã có session đang hoạt động -> Phát WebSocket kick phiên cũ ngay lập tức
+        if (user.getActiveSessionId() != null && !user.getActiveSessionId().isBlank()) {
+            try {
+                notificationService.sendSessionKickedNotification(user.getId());
+            } catch (Exception ex) {
+                // Tiếp tục đăng nhập dù gửi thông báo socket gặp trục trặc
+            }
+        }
+
+        // 2. Tạo session ID duy nhất cho phiên đăng nhập mới
+        String newSessionId = UUID.randomUUID().toString();
+        user.setActiveSessionId(newSessionId);
+        userRepository.save(user);
+
+        // 3. Đồng bộ phiên vào Redis (TTL 7 ngày)
+        try {
+            redisTemplate.opsForValue().set("auth:session:" + user.getId(), newSessionId, Duration.ofDays(7));
+        } catch (Exception ignored) {}
+
+        // 4. Tạo token chứa claim sid mới
+        String token = jwtService.generateToken(userDetails, newSessionId);
         return ResponseLoginDTO.builder().token(token)
                 .roles(userDetails.getAuthorities().stream().map(Object::toString).toList())
                 .build();
     }
-    private final JavaMailSender javaMailSender;
+
+    @Override
+    public void logout() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.getName() != null) {
+                userRepository.findByPhone(authentication.getName()).ifPresent(user -> {
+                    user.setActiveSessionId(null);
+                    userRepository.save(user);
+                    try {
+                        redisTemplate.delete("auth:session:" + user.getId());
+                    } catch (Exception ignored) {}
+                });
+            }
+        } catch (Exception ignored) {}
+    }
 
     private boolean sendOtpViaBrevoHttp(String apiKey, String recipientEmail, String otp) {
         try {
@@ -142,6 +193,7 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(ErrorCode.CANNOT_SEND_EMAIL);
         }
     }
+
     @Override
     public void checkOtp(RequestResetPasswordDTO requestResetPasswordDTO) {
         UserEntity user=userRepository.findByEmail(requestResetPasswordDTO.getEmail())
@@ -150,6 +202,7 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(ErrorCode.INVALID_OTP);
         }
     }
+
     @Override
     public void resetPassword(RequestResetPasswordDTO requestResetPasswordDTO) {
         UserEntity user=userRepository.findByEmail(requestResetPasswordDTO.getEmail())
@@ -157,6 +210,10 @@ public class AuthServiceImpl implements AuthService {
         user.setPasswordHash(passwordEncoder.encode(requestResetPasswordDTO.getNewPassword()));
         user.setResetPasswordOtp(null);
         user.setOtpTime(null);
+        user.setActiveSessionId(null);
         userRepository.save(user);
+        try {
+            redisTemplate.delete("auth:session:" + user.getId());
+        } catch (Exception ignored) {}
     }
 }

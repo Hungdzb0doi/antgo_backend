@@ -728,7 +728,25 @@
                 }
 
                 stompClient.subscribe('/topic/notifications/' + userId, (msg) => {
-                    const data = JSON.parse(msg.body);
+                    let data;
+                    try {
+                        data = JSON.parse(msg.body);
+                    } catch (e) {
+                        return;
+                    }
+                    if (!data) return;
+
+                    // SỰ KIỆN ĐẶC BIỆT: Tài khoản đăng nhập trên một thiết bị khác -> Ngắt phiên ngay lập tức
+                    if (data.type === 'SESSION_KICKED') {
+                        if (typeof window.handleSessionKicked === 'function') {
+                            window.handleSessionKicked(data.content || data.message);
+                        } else {
+                            localStorage.clear();
+                            alert(data.content || data.message || 'Tài khoản của bạn vừa được đăng nhập trên một thiết bị khác. Phiên làm việc này đã kết thúc.');
+                            window.location.replace('/interface/authentication');
+                        }
+                        return;
+                    }
 
                     // SỰ KIỆN 1: Phát âm thanh chuông nhẹ
                     playNotificationSound();
