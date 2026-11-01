@@ -1,19 +1,24 @@
 package com.flashjobweb.dto.response;
 
-import jakarta.persistence.Column;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;
 import lombok.Setter;
 import org.locationtech.jts.geom.Point;
 
 import java.util.UUID;
-@Getter @Setter
+
+@Getter
+@Setter
 public class ResponseWorkerDTO {
     private UUID userId;
     private String fullName;
     private String avatar;
     private String skills;
     private Integer workerScore;
+
+    @JsonIgnore
     private Point currentLocation;
+
     private String phone;
     private Boolean identityVerified;
     private String email;

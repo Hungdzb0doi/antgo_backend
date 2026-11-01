@@ -227,7 +227,7 @@ public class JobServiceImpl implements JobService {
                     dto.setIdentityVerified(worker.getUserEntity().getIdentityVerified());
                     dto.setSkills(worker.getSkills());
                     dto.setWorkerScore(worker.getWorkerScore());
-                    dto.setCurrentLocation(worker.getCurrentLocation());
+                    // currentLocation excluded from serialization to prevent JTS Point circular recursion
 
                     boolean hasApplied = applicationRepository.existsByworker_userIdAndJob_id(worker.getUserId(), jobId);
                     dto.setHasApplied(hasApplied);
