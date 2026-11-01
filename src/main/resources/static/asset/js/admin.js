@@ -1114,10 +1114,12 @@ function closeModal(id) {
 
 async function logoutAdmin() {
     if (await showConfirm('Bạn có chắc chắn muốn đăng xuất khỏi trang Quản trị?')) {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('userRole');
-        localStorage.removeItem('isAdmin');
-        window.location.href = '/interface/authentication';
+        if (typeof window.performLogout === 'function') {
+            await window.performLogout();
+        } else {
+            localStorage.clear();
+            window.location.href = '/interface/authentication';
+        }
     }
 }
 

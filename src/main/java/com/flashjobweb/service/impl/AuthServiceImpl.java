@@ -119,8 +119,17 @@ public class AuthServiceImpl implements AuthService {
                 userRepository.findByPhone(authentication.getName()).ifPresent(user -> {
                     user.setActiveSessionId(null);
                     userRepository.save(user);
+
+                    // Khi đăng xuất: Tự động tắt trạng thái tìm việc và xóa vị trí khỏi Redis Geo
+                    workerProfileRepository.findById(user.getId()).ifPresent(wp -> {
+                        wp.setIsAvailable(false);
+                        workerProfileRepository.save(wp);
+                    });
+
                     try {
                         redisTemplate.delete("auth:session:" + user.getId());
+                        redisTemplate.opsForGeo().remove("worker:locations", user.getId().toString());
+                        redisTemplate.delete("worker:active:" + user.getId().toString());
                     } catch (Exception ignored) {}
                 });
             }

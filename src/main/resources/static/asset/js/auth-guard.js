@@ -27,6 +27,72 @@
     const isPublic = publicPaths.includes(currentPath);
 
     // ==============================================================
+    // TIỆN ÍCH TOÀN CỤC: ĐĂNG XUẤT AN TOÀN (TẮT GPS & DỌN DẸP PHIÊN)
+    // ==============================================================
+    window.performLogout = async function() {
+        const token = localStorage.getItem('accessToken');
+
+        // 1. Dừng theo dõi GPS toàn cục trên trình duyệt
+        try {
+            if (typeof window.stopGlobalWorkerLocationTracking === 'function') {
+                window.stopGlobalWorkerLocationTracking();
+            }
+            if (typeof window.updateGpsDotStatus === 'function') {
+                window.updateGpsDotStatus(false);
+            }
+        } catch (e) {}
+
+        // 2. Ngắt kết nối WebSocket
+        try {
+            if (window.globalStompClient) {
+                window.globalStompClient.disconnect();
+            }
+        } catch (e) {}
+
+        // 3. Gửi thông báo đến Backend để tắt is_available và dọn dẹp Redis Geo
+        if (token) {
+            try {
+                await Promise.race([
+                    Promise.all([
+                        fetch('/api/v1/profile/availability?availability=false', {
+                            method: 'PATCH',
+                            headers: { 'Authorization': 'Bearer ' + token }
+                        }),
+                        fetch('/api/v1/auth/logout', {
+                            method: 'POST',
+                            headers: { 'Authorization': 'Bearer ' + token }
+                        })
+                    ]),
+                    new Promise(resolve => setTimeout(resolve, 600))
+                ]);
+            } catch (e) {}
+        }
+
+        // 4. Xóa sạch dữ liệu lưu trữ cục bộ
+        localStorage.clear();
+
+        // 5. Chuyển hướng về trang đăng nhập
+        window.location.href = '/interface/authentication';
+    };
+
+    // Đăng ký hàm logout toàn cục
+    window.logout = async function() {
+        let confirmed = false;
+        try {
+            if (typeof showConfirm === 'function') {
+                confirmed = await showConfirm('Bạn có chắc chắn muốn đăng xuất không?');
+            } else {
+                confirmed = confirm('Bạn có chắc chắn muốn đăng xuất không?');
+            }
+        } catch (e) {
+            confirmed = confirm('Bạn có chắc chắn muốn đăng xuất không?');
+        }
+        if (confirmed) {
+            await window.performLogout();
+        }
+    };
+
+    // ==============================================================
     // ĐƠN PHIÊN (SINGLE SESSION): XỬ LÝ KHI BỊ ĐĂNG NHẬP Ở NƠI KHÁC
     // ==============================================================
     let isSessionKickedAlerted = false;

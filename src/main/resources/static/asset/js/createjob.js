@@ -350,7 +350,11 @@ let map = null;
 
     async function logout() {
         if (await showConfirm("Bạn có chắc chắn muốn đăng xuất không?")) {
-            localStorage.clear();
-            window.location.href = '/interface/authentication';
+            if (typeof window.performLogout === 'function') {
+                await window.performLogout();
+            } else {
+                localStorage.clear();
+                window.location.href = '/interface/authentication';
+            }
         }
     }

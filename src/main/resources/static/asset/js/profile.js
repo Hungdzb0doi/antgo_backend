@@ -775,9 +775,12 @@ const API_BASE_URL = '/api/v1/profile';
 
     async function logout() {
         if (await showConfirm("Bạn có chắc chắn muốn đăng xuất không?")) {
-            disconnectWebSocket();
-            localStorage.clear();
-            window.location.href = '/interface/authentication';
+            if (typeof window.performLogout === 'function') {
+                await window.performLogout();
+            } else {
+                localStorage.clear();
+                window.location.href = '/interface/authentication';
+            }
         }
     }
 

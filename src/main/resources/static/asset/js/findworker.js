@@ -469,7 +469,11 @@ const token = localStorage.getItem('accessToken');
         if (countEl) countEl.innerText = remainingCount;
     }
 
-    function logout() {
-        localStorage.clear();
-        window.location.href = '/interface/authentication';
+    async function logout() {
+        if (typeof window.performLogout === 'function') {
+            await window.performLogout();
+        } else {
+            localStorage.clear();
+            window.location.href = '/interface/authentication';
+        }
     }

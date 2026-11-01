@@ -698,9 +698,13 @@ const token = localStorage.getItem('accessToken');
         });
     }
 
-    function logout() {
-        localStorage.clear();
-        window.location.href = '/interface/authentication';
+    async function logout() {
+        if (typeof window.performLogout === 'function') {
+            await window.performLogout();
+        } else {
+            localStorage.clear();
+            window.location.href = '/interface/authentication';
+        }
     }
 
     // Tự động tải lại khi có ứng viên mới ứng tuyển
