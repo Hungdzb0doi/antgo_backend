@@ -302,42 +302,35 @@ const API_BASE_URL = '/api/v1/profile';
                     // Trạng thái tìm việc (Availability)
                     const toggle = document.getElementById('toggle-available');
                     const availDesc = document.getElementById('status-availability-desc');
-                    if (toggle) {
-                        const currentUpper = (p.currentMode || 'WORKER').toUpperCase();
-                        // Trạng thái bật chỉ áp dụng cho vai trò WORKER: nếu DB là true hoặc localStorage đang là 'true'
-                        const isLocallyTracking = localStorage.getItem('workerLocationTracking') === 'true';
-                        const isTurnedOn = (currentUpper === 'WORKER') && ((p.isAvailable === true) || isLocallyTracking);
+                    const currentUpper = (p.currentMode || 'WORKER').toUpperCase();
 
-                        toggle.checked = isTurnedOn;
-                        toggle.disabled = (currentUpper !== 'WORKER');
-                        const switchBoxEl = document.getElementById('worker-availability-box') || document.querySelector('.switch-box');
-                        if (switchBoxEl) {
-                            if (currentUpper !== 'WORKER') {
-                                switchBoxEl.style.opacity = '0.5';
-                                switchBoxEl.style.cursor = 'not-allowed';
-                                switchBoxEl.setAttribute('title', 'Bạn đang ở vai trò Nhà tuyển dụng, không thể bật tìm việc.');
-                            } else {
-                                switchBoxEl.style.opacity = '1';
-                                switchBoxEl.style.cursor = 'default';
-                                switchBoxEl.removeAttribute('title');
-                            }
+                    if (currentUpper === 'EMPLOYER') {
+                        applyEmployerGpsLock(true);
+                    } else {
+                        applyEmployerGpsLock(false);
+                        const isAvailDB = (p.isAvailable === true);
+                        if (toggle) {
+                            toggle.checked = isAvailDB;
                         }
+                        localStorage.setItem('workerLocationTracking', isAvailDB ? 'true' : 'false');
                         if (availDesc) {
-                            availDesc.textContent = isTurnedOn 
+                            availDesc.textContent = isAvailDB 
                                 ? 'Đang bật tìm việc · Hệ thống đang định vị GPS để NTD tìm thấy bạn' 
                                 : 'Đang tắt tìm việc · Bạn tạm thời ẩn khỏi bản đồ tìm ứng viên';
                         }
-
-                        // Đồng bộ trạng thái vào localStorage & kích hoạt GPS toàn cục
-                        if (isTurnedOn && currentUpper === 'WORKER') {
-                            localStorage.setItem('workerLocationTracking', 'true');
+                        if (isAvailDB) {
                             if (window.startGlobalWorkerLocationTracking) {
                                 window.startGlobalWorkerLocationTracking();
                             }
+                            if (window.updateGpsDotStatus) {
+                                window.updateGpsDotStatus(true);
+                            }
                         } else {
-                            localStorage.setItem('workerLocationTracking', 'false');
                             if (window.stopGlobalWorkerLocationTracking) {
                                 window.stopGlobalWorkerLocationTracking();
+                            }
+                            if (window.updateGpsDotStatus) {
+                                window.updateGpsDotStatus(false);
                             }
                         }
                     }
@@ -355,6 +348,46 @@ const API_BASE_URL = '/api/v1/profile';
     }
 
     // 2. CHUYỂN CHẾ ĐỘ (UI + GỌI API)
+    function applyEmployerGpsLock(isEmployer) {
+        const toggle = document.getElementById('toggle-available');
+        const switchBox = document.getElementById('worker-availability-box') || document.querySelector('.switch-box');
+        const availDesc = document.getElementById('status-availability-desc');
+
+        if (isEmployer) {
+            if (toggle) {
+                toggle.checked = false;
+                toggle.disabled = true;
+            }
+            if (switchBox) {
+                switchBox.classList.add('disabled-employer-mode');
+                switchBox.setAttribute('title', 'Đang ở vai trò Nhà tuyển dụng · Không thể bật vị trí tìm việc');
+            }
+            if (availDesc) {
+                availDesc.innerHTML = '<span style="color:#ef4444; font-weight:600;"><i class="ti ti-lock"></i> Đang ở chế độ Nhà tuyển dụng · Nút bật vị trí đã bị khóa</span>';
+            }
+            localStorage.setItem('workerLocationTracking', 'false');
+            if (window.stopGlobalWorkerLocationTracking) {
+                window.stopGlobalWorkerLocationTracking();
+            }
+            if (window.updateGpsDotStatus) {
+                window.updateGpsDotStatus(false);
+            }
+        } else {
+            if (toggle) {
+                toggle.disabled = false;
+            }
+            if (switchBox) {
+                switchBox.classList.remove('disabled-employer-mode');
+                switchBox.removeAttribute('title');
+            }
+            if (availDesc) {
+                availDesc.textContent = (toggle && toggle.checked)
+                    ? 'Đang bật tìm việc · Hệ thống đang định vị GPS để NTD tìm thấy bạn'
+                    : 'Đang tắt tìm việc · Bạn tạm thời ẩn khỏi bản đồ tìm ứng viên';
+            }
+        }
+    }
+
     function setMode(m, isInit = false) {
         var btnWorker = document.getElementById('mode-worker');
         var btnEmployer = document.getElementById('mode-employer');
@@ -378,17 +411,7 @@ const API_BASE_URL = '/api/v1/profile';
                 roleBadge.style.background = 'var(--bg-accent-muted)';
                 roleBadge.style.color = 'var(--text-accent)';
             }
-            // Khôi phục GPS và mở khóa công tắc tìm việc nếu là WORKER
-            const toggleW = document.getElementById('toggle-available');
-            if (toggleW) {
-                toggleW.disabled = false;
-            }
-            const switchBoxW = document.getElementById('worker-availability-box') || document.querySelector('.switch-box');
-            if (switchBoxW) {
-                switchBoxW.style.opacity = '1';
-                switchBoxW.style.cursor = 'default';
-                switchBoxW.removeAttribute('title');
-            }
+            applyEmployerGpsLock(false);
             if (localStorage.getItem('workerLocationTracking') === 'true' && window.startGlobalWorkerLocationTracking) {
                 window.startGlobalWorkerLocationTracking();
             }
@@ -416,21 +439,7 @@ const API_BASE_URL = '/api/v1/profile';
             if (window.updateGpsDotStatus) {
                 window.updateGpsDotStatus(false);
             }
-            const toggle = document.getElementById('toggle-available');
-            if (toggle) {
-                toggle.checked = false;
-                toggle.disabled = true;
-            }
-            const switchBox = document.getElementById('worker-availability-box') || document.querySelector('.switch-box');
-            if (switchBox) {
-                switchBox.style.opacity = '0.5';
-                switchBox.style.cursor = 'not-allowed';
-                switchBox.setAttribute('title', 'Bạn đang ở vai trò Nhà tuyển dụng, không thể bật tìm việc.');
-            }
-            const availDesc = document.getElementById('status-availability-desc');
-            if (availDesc) {
-                availDesc.textContent = 'Vai trò Nhà tuyển dụng · Không thể bật vị trí tìm việc';
-            }
+            applyEmployerGpsLock(true);
         }
 
         localStorage.setItem('currentMode', m.toUpperCase());
@@ -486,12 +495,7 @@ const API_BASE_URL = '/api/v1/profile';
     function toggleAvailability(checkboxEl) {
         const currentMode = (localStorage.getItem('currentMode') || 'WORKER').toUpperCase();
         if (currentMode === 'EMPLOYER') {
-            checkboxEl.checked = false;
-            checkboxEl.disabled = true;
-            const availDesc = document.getElementById('status-availability-desc');
-            if (availDesc) {
-                availDesc.textContent = 'Vai trò Nhà tuyển dụng · Không thể bật vị trí tìm việc';
-            }
+            applyEmployerGpsLock(true);
             if (typeof showToast === 'function') {
                 showToast('Bạn đang ở vai trò Nhà tuyển dụng, không thể bật vị trí tìm việc!', 'warning');
             } else {

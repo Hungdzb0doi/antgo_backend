@@ -609,6 +609,28 @@
         input:checked + .slider { background-color: var(--fill-success); }
         input:checked + .slider:before { transform: translateX(20px); }
 
+        /* Khóa nút bật vị trí khi đang ở chế độ Nhà tuyển dụng: Làm mờ nút và chặn tương tác */
+        .switch-box.disabled-employer-mode {
+            opacity: 0.35 !important;
+            filter: grayscale(1) !important;
+            cursor: not-allowed !important;
+            pointer-events: none !important;
+            background: #f1f5f9 !important;
+            border-color: #cbd5e1 !important;
+            user-select: none !important;
+        }
+        .switch-box.disabled-employer-mode * {
+            cursor: not-allowed !important;
+            pointer-events: none !important;
+        }
+        .switch-box.disabled-employer-mode .slider {
+            background-color: #cbd5e1 !important;
+            cursor: not-allowed !important;
+        }
+        .switch-box.disabled-employer-mode .slider:before {
+            transform: none !important;
+        }
+
         /* Employer Details */
         .info-field-group {
             margin-bottom: 16px;

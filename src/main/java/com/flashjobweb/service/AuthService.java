@@ -9,6 +9,7 @@ public interface AuthService {
     void register(RequestRegisterDTO requestRegisterDTO);
     ResponseLoginDTO login(RequestLoginDTO requestLoginDTO);
     void logout();
+    void logoutByPhone(String phone);
     void generateAndSendOtp(String email);
     void checkOtp(RequestResetPasswordDTO requestResetPasswordDTO);
     void resetPassword(RequestResetPasswordDTO requestResetPasswordDTO);

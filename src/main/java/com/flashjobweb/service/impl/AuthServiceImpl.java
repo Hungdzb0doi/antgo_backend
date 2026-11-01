@@ -112,26 +112,32 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    public void logoutByPhone(String phone) {
+        if (phone == null || phone.isBlank()) return;
+        userRepository.findByPhone(phone).ifPresent(user -> {
+            user.setActiveSessionId(null);
+            userRepository.save(user);
+
+            // Khi đăng xuất: Tắt hoàn toàn trạng thái tìm việc và xóa vị trí khỏi Redis Geo
+            workerProfileRepository.findById(user.getId()).ifPresent(wp -> {
+                wp.setIsAvailable(false);
+                workerProfileRepository.save(wp);
+            });
+
+            try {
+                redisTemplate.delete("auth:session:" + user.getId());
+                redisTemplate.opsForGeo().remove("worker:locations", user.getId().toString());
+                redisTemplate.delete("worker:active:" + user.getId().toString());
+            } catch (Exception ignored) {}
+        });
+    }
+
+    @Override
     public void logout() {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication != null && authentication.getName() != null) {
-                userRepository.findByPhone(authentication.getName()).ifPresent(user -> {
-                    user.setActiveSessionId(null);
-                    userRepository.save(user);
-
-                    // Khi đăng xuất: Tự động tắt trạng thái tìm việc và xóa vị trí khỏi Redis Geo
-                    workerProfileRepository.findById(user.getId()).ifPresent(wp -> {
-                        wp.setIsAvailable(false);
-                        workerProfileRepository.save(wp);
-                    });
-
-                    try {
-                        redisTemplate.delete("auth:session:" + user.getId());
-                        redisTemplate.opsForGeo().remove("worker:locations", user.getId().toString());
-                        redisTemplate.delete("worker:active:" + user.getId().toString());
-                    } catch (Exception ignored) {}
-                });
+                logoutByPhone(authentication.getName());
             }
         } catch (Exception ignored) {}
     }

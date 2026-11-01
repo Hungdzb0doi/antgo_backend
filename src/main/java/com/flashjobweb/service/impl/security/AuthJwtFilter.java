@@ -26,7 +26,16 @@ public class AuthJwtFilter extends OncePerRequestFilter {
                                  @NonNull HttpServletResponse httpServletResponse,
                                  @NonNull FilterChain filterChain) throws ServletException, IOException {
         String path = httpServletRequest.getRequestURI();
-        if (path != null && (path.startsWith("/api/v1/auth/") || path.startsWith("/interface/") || path.startsWith("/ws/"))) {
+        boolean isPublicPath = path != null && (
+                path.equals("/api/v1/auth/login") ||
+                path.equals("/api/v1/auth/register") ||
+                path.equals("/api/v1/auth/otp") ||
+                path.equals("/api/v1/auth/ckotp") ||
+                path.equals("/api/v1/auth/newpassword") ||
+                path.startsWith("/interface/") ||
+                path.startsWith("/ws/")
+        );
+        if (isPublicPath) {
             filterChain.doFilter(httpServletRequest, httpServletResponse);
             return;
         }
@@ -42,13 +51,13 @@ public class AuthJwtFilter extends OncePerRequestFilter {
             String userName = jwtService.extractUsername(jwtToken);
             if (userName != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = this.customUserDetailsService.loadUserByUsername(userName);
-                if (jwtService.isSessionSuperseded(jwtToken, userDetails)) {
+                if (!"/api/v1/auth/logout".equals(path) && jwtService.isSessionSuperseded(jwtToken, userDetails)) {
                     httpServletResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     httpServletResponse.setContentType("application/json;charset=UTF-8");
                     httpServletResponse.getWriter().write("{\"code\":401,\"message\":\"Tài khoản của bạn đã được đăng nhập trên một thiết bị khác. Vui lòng đăng nhập lại.\",\"data\":\"SESSION_SUPERSEDED\"}");
                     return;
                 }
-                if (jwtService.validateToken(jwtToken, userDetails)) {
+                if (jwtService.validateToken(jwtToken, userDetails) || "/api/v1/auth/logout".equals(path)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails, null, userDetails.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(httpServletRequest));

@@ -6,6 +6,8 @@ import com.flashjobweb.dto.request.RequestResetPasswordDTO;
 import com.flashjobweb.dto.response.ResponseLoginDTO;
 import com.flashjobweb.exception.ErrorCode;
 import com.flashjobweb.service.AuthService;
+import com.flashjobweb.service.impl.security.JwtService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +18,7 @@ import com.flashjobweb.util.ApiResponse;
 @RequiredArgsConstructor
 public class AuthAPI {
     private final AuthService authService;
+    private final JwtService jwtService;
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<Object>> register(@RequestBody RequestRegisterDTO requestRegisterDTO) {
@@ -34,7 +37,18 @@ public class AuthAPI {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Object>> logout() {
+    public ResponseEntity<ApiResponse<Object>> logout(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            try {
+                String phone = jwtService.extractUsername(token);
+                if (phone != null && !phone.isBlank()) {
+                    authService.logoutByPhone(phone);
+                    return ResponseEntity.ok(ApiResponse.success("Đăng xuất thành công"));
+                }
+            } catch (Exception ignored) {}
+        }
         authService.logout();
         return ResponseEntity.ok(ApiResponse.success("Đăng xuất thành công"));
     }

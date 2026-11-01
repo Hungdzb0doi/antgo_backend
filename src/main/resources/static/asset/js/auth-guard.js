@@ -32,7 +32,7 @@
     window.performLogout = async function() {
         const token = localStorage.getItem('accessToken');
 
-        // 1. Dừng theo dõi GPS toàn cục trên trình duyệt
+        // 1. Dừng ngay lập tức toàn bộ theo dõi GPS trên trình duyệt
         try {
             if (typeof window.stopGlobalWorkerLocationTracking === 'function') {
                 window.stopGlobalWorkerLocationTracking();
@@ -49,7 +49,12 @@
             }
         } catch (e) {}
 
-        // 3. Gửi thông báo đến Backend để tắt is_available và dọn dẹp Redis Geo
+        // 3. Tắt cờ GPS ngay lập tức trong bộ nhớ
+        try {
+            localStorage.setItem('workerLocationTracking', 'false');
+        } catch (e) {}
+
+        // 4. Gửi đồng bộ lên Backend để tắt is_available và hủy phiên
         if (token) {
             try {
                 await Promise.race([
@@ -60,18 +65,18 @@
                         }),
                         fetch('/api/v1/auth/logout', {
                             method: 'POST',
-                            headers: { 'Authorization': 'Bearer ' + token }
+                            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
                         })
                     ]),
-                    new Promise(resolve => setTimeout(resolve, 600))
+                    new Promise(resolve => setTimeout(resolve, 1500))
                 ]);
             } catch (e) {}
         }
 
-        // 4. Xóa sạch dữ liệu lưu trữ cục bộ
+        // 5. Xóa sạch dữ liệu lưu trữ cục bộ
         localStorage.clear();
 
-        // 5. Chuyển hướng về trang đăng nhập
+        // 6. Chuyển hướng về trang đăng nhập
         window.location.href = '/interface/authentication';
     };
 

@@ -424,14 +424,28 @@
                 .then(r => r.json())
                 .then(r => {
                     if (r.code === 200 && r.data) {
+                        const currentMode = (r.data.currentMode || 'WORKER').toUpperCase();
+                        if (r.data.currentMode) {
+                            localStorage.setItem('currentMode', currentMode);
+                        }
+                        if (currentMode === 'EMPLOYER') {
+                            localStorage.setItem('workerLocationTracking', 'false');
+                            window.updateGpsDotStatus(false);
+                            if (window.stopGlobalWorkerLocationTracking) {
+                                window.stopGlobalWorkerLocationTracking();
+                            }
+                            return;
+                        }
                         const isAvail = r.data.isAvailable === true;
                         localStorage.setItem('workerLocationTracking', isAvail ? 'true' : 'false');
-                        if (r.data.currentMode) {
-                            localStorage.setItem('currentMode', r.data.currentMode.toUpperCase());
-                        }
-                        if (isAvail && (r.data.currentMode || 'WORKER').toUpperCase() !== 'EMPLOYER') {
+                        if (isAvail) {
                             window.updateGpsDotStatus(true);
                             window.startGlobalWorkerLocationTracking();
+                        } else {
+                            window.updateGpsDotStatus(false);
+                            if (window.stopGlobalWorkerLocationTracking) {
+                                window.stopGlobalWorkerLocationTracking();
+                            }
                         }
                     }
                 }).catch(() => {});
