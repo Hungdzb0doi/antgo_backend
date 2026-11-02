@@ -311,6 +311,15 @@ public class JobServiceImpl implements JobService {
         application.setJob(job);
         application.setWorker(worker);
         application.setStatus(ApplicationStatus.PENDING);
+        if ("CANCELLED".equalsIgnoreCase(job.getStatus())) {
+            throw new AppException(ErrorCode.JOB_ALREADY_CANCELLED);
+        }
+        if ("COMPLETED".equalsIgnoreCase(job.getStatus())) {
+            throw new AppException(ErrorCode.JOB_ALREADY_COMPLETED);
+        }
+        if (!"OPEN".equalsIgnoreCase(job.getStatus())) {
+            throw new AppException(ErrorCode.JOB_NOT_OPEN);
+        }
         application.setType(ApplicationType.INVITATION);
         applicationRepository.save(application);
 
@@ -412,6 +421,15 @@ public class JobServiceImpl implements JobService {
         application.setJob(job);
         application.setWorker(worker);
         application.setStatus(ApplicationStatus.PENDING);
+        if ("CANCELLED".equalsIgnoreCase(job.getStatus())) {
+            throw new AppException(ErrorCode.JOB_ALREADY_CANCELLED);
+        }
+        if ("COMPLETED".equalsIgnoreCase(job.getStatus())) {
+            throw new AppException(ErrorCode.JOB_ALREADY_COMPLETED);
+        }
+        if (!"OPEN".equalsIgnoreCase(job.getStatus())) {
+            throw new AppException(ErrorCode.JOB_NOT_OPEN);
+        }
         application.setType(ApplicationType.APPLICATION);
         applicationRepository.save(application);
 

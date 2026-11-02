@@ -58,6 +58,22 @@ public class ApplicationServiceImpl implements ApplicationService {
         String cleanKeyword = (keyword != null && !keyword.trim().isEmpty()) ? keyword.trim() : null;
         List<ApplicationEntity> applications = applicationRepository.findApplicationsForWorker(user.getId(), status, type, cleanKeyword);
 
+        // Tự động đồng bộ các đơn/lời mời đang PENDING (hoặc BOOKED) nếu công việc gốc đã bị hủy hoặc không còn OPEN
+        applications = applications.stream().filter(app -> {
+            JobEntity job = app.getJob();
+            if (job != null) {
+                String jobStatus = job.getStatus();
+                if (app.getStatus() == ApplicationStatus.PENDING && !"OPEN".equalsIgnoreCase(jobStatus)) {
+                    app.setStatus(ApplicationStatus.CANCELLED);
+                    applicationRepository.save(app);
+                } else if (app.getStatus() == ApplicationStatus.BOOKED && "CANCELLED".equalsIgnoreCase(jobStatus)) {
+                    app.setStatus(ApplicationStatus.CANCELLED);
+                    applicationRepository.save(app);
+                }
+            }
+            return status == null || app.getStatus() == status;
+        }).collect(Collectors.toList());
+
         return applications.stream().map(app -> {
             ResponseApplicationWorkerDTO dto = new ResponseApplicationWorkerDTO();
 
@@ -97,6 +113,7 @@ public class ApplicationServiceImpl implements ApplicationService {
         }).collect(Collectors.toList());
     }
     @Override
+    @Transactional(noRollbackFor = AppException.class)
     public void respondToInvitation( RequestInvitationDTO request) {
 
 
@@ -113,6 +130,18 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         if (application.getStatus() != ApplicationStatus.PENDING ||
                 application.getType() != ApplicationType.INVITATION) {
+            JobEntity currentJob = application.getJob();
+            if (currentJob != null) {
+                if ("CANCELLED".equalsIgnoreCase(currentJob.getStatus())) {
+                    throw new AppException(ErrorCode.JOB_ALREADY_CANCELLED);
+                }
+                if ("COMPLETED".equalsIgnoreCase(currentJob.getStatus())) {
+                    throw new AppException(ErrorCode.JOB_ALREADY_COMPLETED);
+                }
+                if (!"OPEN".equalsIgnoreCase(currentJob.getStatus())) {
+                    throw new AppException(ErrorCode.JOB_NOT_OPEN);
+                }
+            }
             throw new AppException(ErrorCode.APPLICATION_IN_DIFFERENT_STATUS);
         }
 
@@ -263,6 +292,7 @@ public class ApplicationServiceImpl implements ApplicationService {
         }).toList();
     }
     @Override
+    @Transactional(noRollbackFor = AppException.class)
     public void respondToApplication(RequestApplicationDTO request) {
 
         ApplicationEntity application = applicationRepository.findById(request.getApplicationId())

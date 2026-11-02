@@ -1056,9 +1056,28 @@ const token = localStorage.getItem('accessToken');
             .then(data => {
                 if (data.code === 200 || data.success) {
                     alert(isAccepted ? "Nhận việc thành công! Hãy kiểm tra tab 'Sắp làm'" : "Đã từ chối lời mời.");
-                    document.getElementById(`app-${applicationId}`).style.display = 'none';
+                    const cardEl = document.getElementById(`app-${applicationId}`);
+                    if (cardEl) cardEl.remove();
+                    loadJobs(currentTabStatus, currentTabType, currentIsHistoryTab);
                 } else {
-                    alert("Lỗi: " + (data.message || "Thao tác thất bại"));
+                    const msg = data.message || "Thao tác thất bại";
+                    const invalidCodes = [3000, 3003, 3004, 3005, 3006, 4000, 4003, 4004, 4010];
+                    const shouldRemoveCard = invalidCodes.includes(data.code) ||
+                        msg.toLowerCase().includes("đã bị hủy") ||
+                        msg.toLowerCase().includes("hoàn thành") ||
+                        msg.toLowerCase().includes("không còn mở") ||
+                        msg.toLowerCase().includes("đủ số lượng");
+                    alert("Lỗi: " + msg, () => {
+                        if (shouldRemoveCard) {
+                            const cardEl = document.getElementById(`app-${applicationId}`);
+                            if (cardEl) cardEl.remove();
+                            loadJobs(currentTabStatus, currentTabType, currentIsHistoryTab);
+                        }
+                    });
+                    if (shouldRemoveCard) {
+                        const cardEl = document.getElementById(`app-${applicationId}`);
+                        if (cardEl) cardEl.remove();
+                    }
                 }
             })
             .catch(err => {
